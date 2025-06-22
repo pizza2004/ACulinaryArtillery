@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -13,7 +12,6 @@ using Vintagestory.GameContent.Mechanics;
 
 namespace ACulinaryArtillery
 {
-
     public class BlockEntityMixingBowl : BlockEntityOpenableContainer
     {
         static SimpleParticleProperties FlourParticles;
@@ -47,7 +45,6 @@ namespace ACulinaryArtillery
             FlourDustParticles.OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.QUADRATIC, -16f);
         }
 
-
         ILoadedSound ambientSound;
 
         internal InventoryMixingBowl inventory;
@@ -69,7 +66,7 @@ namespace ACulinaryArtillery
 
 
         // Server side only
-        Dictionary<string, long> playersMixing = new Dictionary<string, long>();
+        Dictionary<string, long> playersMixing = [];
         // Client and serverside
         int quantityPlayersMixing;
 
@@ -77,10 +74,7 @@ namespace ACulinaryArtillery
 
         #region Getters
 
-        public string Material
-        {
-            get { return Block.LastCodePart(); }
-        }
+        public string Material => Block.LastCodePart();
 
         public float MixSpeed
         {
@@ -99,48 +93,34 @@ namespace ACulinaryArtillery
         {
             get
             {
-                object value;
-                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "basemesh-" + Material, out value);
+                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "basemesh-" + Material, out object value);
                 return (MeshData)value;
             }
-            set { Api.ObjectCache[Block.FirstCodePart() + "basemesh-" + Material] = value; }
+            set => Api.ObjectCache[Block.FirstCodePart() + "basemesh-" + Material] = value;
         }
 
         MeshData mixingBowlTopMesh
         {
             get
             {
-                object value = null;
-                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "topmesh-" + Material, out value);
+                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "topmesh-" + Material, out object value);
                 return (MeshData)value;
             }
-            set { Api.ObjectCache[Block.FirstCodePart() + "topmesh-" + Material] = value; }
+            set => Api.ObjectCache[Block.FirstCodePart() + "topmesh-" + Material] = value;
         }
 
         #endregion
 
         #region Config
 
-
         public virtual float maxMixingTime()
         {
             return 4;
         }
 
-        public override string InventoryClassName
-        {
-            get { return Block.FirstCodePart(); }
-        }
-
-        public virtual string DialogTitle
-        {
-            get { return Lang.Get("aculinaryartillery:Mixing Bowl"); }
-        }
-
-        public override InventoryBase Inventory
-        {
-            get { return inventory; }
-        }
+        public override string InventoryClassName => Block.FirstCodePart();
+        public virtual string DialogTitle => Lang.Get("aculinaryartillery:Mixing Bowl");
+        public override InventoryBase Inventory => inventory;
 
         #endregion
 
@@ -150,8 +130,6 @@ namespace ACulinaryArtillery
             inventory = new InventoryMixingBowl(null, null, this);
             inventory.SlotModified += OnSlotModifid;
         }
-
-
 
         public override void Initialize(ICoreAPI api)
         {
@@ -182,7 +160,7 @@ namespace ACulinaryArtillery
             if (api.Side == EnumAppSide.Client)
             {
                 renderer = new MixingBowlTopRenderer(api as ICoreClientAPI, Pos, GenMesh("top"));
-                renderer.mechPowerPart = this.mpc;
+                renderer.mechPowerPart = mpc;
                 if (automated)
                 {
                     renderer.ShouldRender = true;
@@ -202,7 +180,6 @@ namespace ACulinaryArtillery
             }
         }
 
-
         public override void CreateBehaviors(Block block, IWorldAccessor worldForResolve)
         {
             base.CreateBehaviors(block, worldForResolve);
@@ -210,7 +187,8 @@ namespace ACulinaryArtillery
             mpc = GetBehavior<BEBehaviorMPConsumer>();
             if (mpc != null)
             {
-                mpc.OnConnected = () => {
+                mpc.OnConnected = () =>
+                {
                     automated = true;
                     quantityPlayersMixing = 0;
                     if (renderer != null)
@@ -220,7 +198,8 @@ namespace ACulinaryArtillery
                     }
                 };
 
-                mpc.OnDisconnected = () => {
+                mpc.OnDisconnected = () =>
+                {
                     automated = false;
                     if (renderer != null)
                     {
@@ -243,38 +222,14 @@ namespace ACulinaryArtillery
 
             if (Api.Side == EnumAppSide.Client)
             {
-                /*if (InputStack != null)
-                {
-                    float dustMinQ = 1 * mixSpeed;
-                    float dustAddQ = 5 * mixSpeed;
-                    float flourPartMinQ = 1 * mixSpeed;
-                    float flourPartAddQ = 20 * mixSpeed;
-                    FlourDustParticles.Color = FlourParticles.Color = InputStack.Collectible.GetRandomColor(Api as ICoreClientAPI, InputStack);
-                    FlourDustParticles.Color &= 0xffffff;
-                    FlourDustParticles.Color |= (200 << 24);
-                    FlourDustParticles.MinQuantity = dustMinQ;
-                    FlourDustParticles.AddQuantity = dustAddQ;
-                    FlourDustParticles.MinPos.Set(Pos.X - 1 / 32f, Pos.Y + 11 / 16f, Pos.Z - 1 / 32f);
-                    FlourDustParticles.MinVelocity.Set(-0.1f, 0, -0.1f);
-                    FlourDustParticles.AddVelocity.Set(0.2f, 0.2f, 0.2f);
-                    FlourParticles.MinPos.Set(Pos.X - 1 / 32f, Pos.Y + 11 / 16f, Pos.Z - 1 / 32f);
-                    FlourParticles.AddQuantity = flourPartAddQ;
-                    FlourParticles.MinQuantity = flourPartMinQ;
-                    Api.World.SpawnParticles(FlourParticles);
-                    Api.World.SpawnParticles(FlourDustParticles);
-                }*/
-
                 if (ambientSound != null && automated)
                 {
                     ambientSound.SetPitch((0.5f + mpc.TrueSpeed) * 0.9f);
                     ambientSound.SetVolume(Math.Min(1f, mpc.TrueSpeed * 3f));
                 }
 
-                return;
+                return; // Only tick on the server and merely sync to client
             }
-
-
-            // Only tick on the server and merely sync to client
 
             // Use up fuel
             if (CanMix() && mixSpeed > 0)
@@ -325,7 +280,6 @@ namespace ACulinaryArtillery
                     stacks[i].StackSize /= servings; // whats this good for? Probably doesn't do anything meaningful
                 }
 
-
                 ((BlockCookedContainer)cooked).SetContents(recipe.Code, servings, mixedStack, stacks);
 
                 inventory[0].TakeOut(1);
@@ -339,37 +293,16 @@ namespace ACulinaryArtillery
                         IngredSlots[i].MarkDirty();
                     }
                 }
-                /*for (int i = 0; i < IngredSlots.Length; i++)
-                {
-                    if (IngredSlots[i].Itemstack != null)
-                    {
-                        if (IngredSlots[i].Itemstack.Collectible.IsLiquid())
-                        { IngredSlots[i].TakeOut(servings * 10); }
-                        else
-                        { IngredSlots[i].TakeOut(servings); }
-                        IngredSlots[i].MarkDirty();
-                    }
-                }*/
-
             }
-            else if (drecipe != null)
-            {
-                mixedStack = drecipe.TryCraftNow(Api, IngredSlots);
-            }
+            else if (drecipe != null) mixedStack = drecipe.TryCraftNow(Api, IngredSlots);
             else return;
 
-            if (OutputSlot.Itemstack == null)
-            {
-                OutputSlot.Itemstack = mixedStack;
-            }
+            if (OutputSlot.Itemstack == null) OutputSlot.Itemstack = mixedStack;
             else
             {
                 int mergableQuantity = OutputSlot.Itemstack.Collectible.GetMergableQuantity(OutputSlot.Itemstack, mixedStack, EnumMergePriority.AutoMerge);
 
-                if (mergableQuantity > 0)
-                {
-                    OutputSlot.Itemstack.StackSize += mixedStack.StackSize;
-                }
+                if (mergableQuantity > 0) OutputSlot.Itemstack.StackSize += mixedStack.StackSize;
                 else
                 {
                     BlockFacing face = BlockFacing.HORIZONTALS[nowOutputFace];
@@ -381,10 +314,8 @@ namespace ACulinaryArtillery
                 }
             }
 
-
             OutputSlot.MarkDirty();
         }
-
 
         // Sync to client every 500ms
         private void Every500ms(float dt)
@@ -395,7 +326,6 @@ namespace ACulinaryArtillery
             }
 
             prevInputMixTime = inputMixTime;
-
 
             foreach (var val in playersMixing)
             {
@@ -408,22 +338,12 @@ namespace ACulinaryArtillery
             }
         }
 
-
-
-
-
         public void SetPlayerMixing(IPlayer player, bool playerMixing)
         {
             if (!automated)
             {
-                if (playerMixing)
-                {
-                    playersMixing[player.PlayerUID] = Api.World.ElapsedMilliseconds;
-                }
-                else
-                {
-                    playersMixing.Remove(player.PlayerUID);
-                }
+                if (playerMixing) playersMixing[player.PlayerUID] = Api.World.ElapsedMilliseconds;
+                else playersMixing.Remove(player.PlayerUID);
 
                 quantityPlayersMixing = playersMixing.Count;
             }
@@ -440,53 +360,31 @@ namespace ACulinaryArtillery
 
             if (nowMixing != beforeMixing)
             {
-                if (renderer != null)
-                {
-                    renderer.ShouldRotateManual = quantityPlayersMixing > 0;
-                }
+                if (renderer != null) renderer.ShouldRotateManual = quantityPlayersMixing > 0;
 
                 Api.World.BlockAccessor.MarkBlockDirty(Pos, OnRetesselated);
 
-                if (nowMixing)
-                {
-                    ambientSound?.Start();
-                }
-                else
-                {
-                    ambientSound?.Stop();
-                }
+                if (nowMixing) ambientSound?.Start();
+                else ambientSound?.Stop();
 
-                if (Api.Side == EnumAppSide.Server)
-                {
-                    MarkDirty();
-                }
+                if (Api.Side == EnumAppSide.Server) MarkDirty();
             }
 
             beforeMixing = nowMixing;
         }
 
-
-
-
         private void OnSlotModifid(int slotid)
         {
-            if (Api is ICoreClientAPI)
-            {
-                clientDialog.Update(inputMixTime, maxMixingTime(), GetOutputText());
-            }
+            if (Api is ICoreClientAPI) clientDialog.Update(inputMixTime, maxMixingTime(), GetOutputText());
 
             if (slotid == 0 || slotid > 1)
             {
                 inputMixTime = 0.0f; //reset the progress to 0 if any of the input is changed.
                 MarkDirty();
 
-                if (clientDialog != null && clientDialog.IsOpened())
-                {
-                    clientDialog.SingleComposer.ReCompose();
-                }
+                if (clientDialog != null && clientDialog.IsOpened()) clientDialog.SingleComposer.ReCompose();
             }
         }
-
 
         private void OnRetesselated()
         {
@@ -494,9 +392,6 @@ namespace ACulinaryArtillery
 
             renderer.ShouldRender = quantityPlayersMixing > 0 || automated;
         }
-
-
-
 
         internal MeshData GenMesh(string type = "base")
         {
@@ -511,19 +406,12 @@ namespace ACulinaryArtillery
             return mesh;
         }
 
-
-
-
         public bool CanMix()
         {
             return GetMatchingMixingRecipe(Api.World, IngredStacks) != null || GetMatchingDoughRecipe(Api.World, IngredSlots) != null;
         }
 
-
-
-
         #region Events
-
         public override bool OnPlayerRightClick(IPlayer byPlayer, BlockSelection blockSel)
         {
             if (blockSel.SelectionBoxIndex == 1) return false;
@@ -542,7 +430,6 @@ namespace ACulinaryArtillery
 
             return true;
         }
-
 
         public override void FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldForResolving)
         {
@@ -567,35 +454,25 @@ namespace ACulinaryArtillery
 
             Inventory.FromTreeAttributes(tree.GetTreeAttribute("inventory"));
 
-            if (Api != null)
-            {
-                Inventory.AfterBlocksLoaded(Api.World);
-            }
-
+            if (Api != null) Inventory.AfterBlocksLoaded(Api.World);
 
             inputMixTime = tree.GetFloat("inputMixTime");
             nowOutputFace = tree.GetInt("nowOutputFace");
 
             if (worldForResolving.Side == EnumAppSide.Client)
             {
-                List<int> clientIds = new List<int>((tree["clientIsMixing"] as IntArrayAttribute).value);
+                List<int> clientIds = [.. (tree["clientIsMixing"] as IntArrayAttribute).value];
 
                 quantityPlayersMixing = clientIds.Count;
 
-                string[] playeruids = playersMixing.Keys.ToArray();
+                string[] playeruids = [.. playersMixing.Keys];
 
                 foreach (var uid in playeruids)
                 {
                     IPlayer plr = Api.World.PlayerByUid(uid);
 
-                    if (!clientIds.Contains(plr.ClientId))
-                    {
-                        playersMixing.Remove(uid);
-                    }
-                    else
-                    {
-                        clientIds.Remove(plr.ClientId);
-                    }
+                    if (!clientIds.Contains(plr.ClientId)) playersMixing.Remove(uid);
+                    else clientIds.Remove(plr.ClientId);
                 }
 
                 for (int i = 0; i < clientIds.Count; i++)
@@ -608,13 +485,8 @@ namespace ACulinaryArtillery
             }
 
 
-            if (Api?.Side == EnumAppSide.Client && clientDialog != null)
-            {
-                clientDialog.Update(inputMixTime, maxMixingTime(), GetOutputText());
-            }
+            if (Api?.Side == EnumAppSide.Client) clientDialog?.Update(inputMixTime, maxMixingTime(), GetOutputText());
         }
-
-
 
         public override void ToTreeAttributes(ITreeAttribute tree)
         {
@@ -635,7 +507,7 @@ namespace ACulinaryArtillery
 
             tree.SetFloat("inputMixTime", inputMixTime);
             tree.SetInt("nowOutputFace", nowOutputFace);
-            List<int> vals = new List<int>();
+            List<int> vals = [];
             foreach (var val in playersMixing)
             {
                 IPlayer plr = Api.World.PlayerByUid(val.Key);
@@ -643,12 +515,8 @@ namespace ACulinaryArtillery
                 vals.Add(plr.ClientId);
             }
 
-
-            tree["clientIsMixing"] = new IntArrayAttribute(vals.ToArray());
+            tree["clientIsMixing"] = new IntArrayAttribute([.. vals]);
         }
-
-
-
 
         public override void OnBlockRemoved()
         {
@@ -666,7 +534,7 @@ namespace ACulinaryArtillery
 
         ~BlockEntityMixingBowl()
         {
-            if (ambientSound != null) ambientSound.Dispose();
+            ambientSound?.Dispose();
         }
 
         public override void OnReceivedClientPacket(IPlayer player, int packetid, byte[] data)
@@ -707,50 +575,30 @@ namespace ACulinaryArtillery
         #endregion
 
         #region Helper getters
-
-
-        public BlockCookingContainer Pot
-        {
-            get { return inventory[0].Itemstack?.Collectible as BlockCookingContainer; }
-        }
-
-        public ItemSlot OutputSlot
-        {
-            get { return inventory[1]; }
-        }
+        public BlockCookingContainer Pot => inventory[0].Itemstack?.Collectible as BlockCookingContainer;
+        public ItemSlot OutputSlot => inventory[1];
 
         public ItemStack InputStack
         {
-            get { return inventory[0].Itemstack; }
-            set { inventory[0].Itemstack = value; inventory[0].MarkDirty(); }
-        }
-
-        public ItemSlot[] IngredSlots
-        {
-            get { return new ItemSlot[] { inventory[2], inventory[3], inventory[4], inventory[5], inventory[6], inventory[7] }; }
-        }
-
-        public ItemStack[] IngredStacks
-        {
-            get
+            get => inventory[0].Itemstack;
+            set 
             {
-                List<ItemStack> stacks = new List<ItemStack>(4);
-
-                for (int i = 0; i < IngredSlots.Length; i++)
-                {
-                    ItemStack stack = IngredSlots[i].Itemstack;
-                    if (stack == null) continue;
-                    stacks.Add(stack.Clone());
-                }
-
-                return stacks.ToArray();
+                inventory[0].Itemstack = value;
+                inventory[0].MarkDirty();
             }
         }
 
+        public ItemSlot[] IngredSlots => [ inventory[2], inventory[3], inventory[4], inventory[5], inventory[6], inventory[7] ];
+        public ItemStack[] IngredStacks => [.. IngredSlots.Select(slot => slot.Itemstack).Where(stack => stack != null)];
+
         public ItemStack OutputStack
         {
-            get { return inventory[1].Itemstack; }
-            set { inventory[1].Itemstack = value; inventory[1].MarkDirty(); }
+            get => inventory[1].Itemstack;
+            set
+            {
+                inventory[1].Itemstack = value;
+                inventory[1].MarkDirty();
+            }
         }
 
         #endregion
@@ -762,14 +610,8 @@ namespace ACulinaryArtillery
             {
                 if (slot.Itemstack == null) continue;
 
-                if (slot.Itemstack.Class == EnumItemClass.Item)
-                {
-                    itemIdMapping[slot.Itemstack.Item.Id] = slot.Itemstack.Item.Code;
-                }
-                else
-                {
-                    blockIdMapping[slot.Itemstack.Block.BlockId] = slot.Itemstack.Block.Code;
-                }
+                if (slot.Itemstack.Class == EnumItemClass.Item) itemIdMapping[slot.Itemstack.Item.Id] = slot.Itemstack.Item.Code;
+                else blockIdMapping[slot.Itemstack.Block.BlockId] = slot.Itemstack.Block.Code;
             }
         }
 
@@ -778,29 +620,23 @@ namespace ACulinaryArtillery
             foreach (var slot in Inventory)
             {
                 if (slot.Itemstack == null) continue;
-                if (!slot.Itemstack.FixMapping(oldBlockIdMapping, oldItemIdMapping, worldForResolve))
-                {
-                    slot.Itemstack = null;
-                }
+                if (!slot.Itemstack.FixMapping(oldBlockIdMapping, oldItemIdMapping, worldForResolve)) slot.Itemstack = null;
             }
         }
-
-
 
         public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
         {
             if (Block == null) return false;
 
-            mesher.AddMeshData(this.mixingBowlBaseMesh);
+            mesher.AddMeshData(mixingBowlBaseMesh);
             if (quantityPlayersMixing == 0 && !automated)
             {
                 mesher.AddMeshData(
-                    this.mixingBowlTopMesh.Clone()
+                    mixingBowlTopMesh.Clone()
                     .Rotate(new Vec3f(0.5f, 0.5f, 0.5f), 0, renderer.AngleRad, 0)
                     .Translate(0 / 16f, 11 / 16f, 0 / 16f)
                 );
             }
-
 
             return true;
         }
@@ -808,9 +644,8 @@ namespace ACulinaryArtillery
         public CookingRecipe GetMatchingMixingRecipe(IWorldAccessor world, ItemStack[] stacks)
         {
             if (Pot == null) return null;
-            //var recipes = MixingRecipeRegistry.Registry.MixingRecipes;
-            var recipes = Api.GetMixingRecipes();
-            if (recipes == null) return null;
+            
+            if (Api.GetMixingRecipes() is not List<CookingRecipe> recipes) return null;
 
             for (int j = 0; j < recipes.Count; j++)
             {
@@ -828,9 +663,8 @@ namespace ACulinaryArtillery
         public DoughRecipe GetMatchingDoughRecipe(IWorldAccessor world, ItemSlot[] slots)
         {
             if (Pot != null) return null;
-            //List<DoughRecipe> recipes = MixingRecipeRegistry.Registry.KneadingRecipes;
-            var recipes = Api.GetKneadingRecipes();
-            if (recipes == null) return null;
+
+            if (Api.GetKneadingRecipes() is not List<DoughRecipe> recipes) return null;
 
             for (int j = 0; j < recipes.Count; j++)
             {
@@ -859,22 +693,12 @@ namespace ACulinaryArtillery
             if (recipe != null)
             {
                 double quantity = recipe.GetQuantityServings(IngredStacks);
-                if (quantity != 1)
-                {
-                    return locked + Lang.Get("mealcreation-makeplural", (int)quantity, recipe.GetOutputName(Api.World, IngredStacks).ToLowerInvariant());
-                }
-                else
-                {
-                    return locked + Lang.Get("mealcreation-makesingular", (int)quantity, recipe.GetOutputName(Api.World, IngredStacks).ToLowerInvariant());
-                }
+
+                return locked + Lang.Get("mealcreation-make" + (quantity == 1 ? "singular" : "plural"), (int)quantity, recipe.GetOutputName(Api.World, IngredStacks).ToLowerInvariant());
             }
-            else if (drecipe != null)
-            {
-                return locked + drecipe.GetOutputName();
-            }
+            else if (drecipe != null) return locked + drecipe.GetOutputName();
 
             return locked;
-
         }
 
         public void ToggleLock(IPlayer player = null)
@@ -893,6 +717,5 @@ namespace ACulinaryArtillery
                 lockedInv[i] = inventory[i + 2].Itemstack?.Clone();
             }
         }
-
     }
 }

@@ -2,20 +2,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+using System.Reflection.Emit;
 
-namespace ACulinaryArtillery.Util {
-    public static class CodeMatcherExtensions {
-
+namespace ACulinaryArtillery.Util
+{
+    public static class CodeMatcherExtensions
+    {
         /// <summary>
         /// Extracts the current position out of a <see cref="CodeMatcher"/>.
         /// </summary>
-        public static CodeMatcher RememberPositionIn(this CodeMatcher matcher, out int position) {
+        public static CodeMatcher RememberPositionIn(this CodeMatcher matcher, out int position)
+        {
             position = matcher.Pos;
             return matcher;
         }
@@ -23,23 +21,24 @@ namespace ACulinaryArtillery.Util {
         /// <summary>
         /// Extracts the <see cref="CodeMatcher.NamedMatch(string)"/> out of a <see cref="CodeMatcher"/>.
         /// </summary>
-        public static CodeMatcher RememberNamedMatchIn(this CodeMatcher matcher, string name, out CodeInstruction instruction) {
+        public static CodeMatcher RememberNamedMatchIn(this CodeMatcher matcher, string name, out CodeInstruction instruction)
+        {
             instruction = matcher.NamedMatch(name);
             return matcher;
         }
 
-
         /// <summary>
         /// Extracts the current <see cref="Instruction"/> out of a <see cref="CodeMatcher"/>.
         /// </summary>
-        public static CodeMatcher RememberInstructionIn(this CodeMatcher matcher, out CodeInstruction instruction) {
+        public static CodeMatcher RememberInstructionIn(this CodeMatcher matcher, out CodeInstruction instruction)
+        {
             instruction = matcher.Instruction;
             return matcher;
         }
-
     }
 
-    public static class Instruction {
+    public static class Instruction
+    {
         public static bool IsBrFalse(this CodeInstruction ci)
             => ci.opcode == OpCodes.Brfalse || ci.opcode == OpCodes.Brfalse_S;
 
@@ -91,9 +90,11 @@ namespace ACulinaryArtillery.Util {
     /// <summary>
     /// Helper class to allow easy(ish) replacements of local uses by type.
     /// </summary>
-    public class LocalRedirector {
+    public class LocalRedirector
+    {
+        private LocalRedirector()
+        {
 
-        private LocalRedirector() {
         }
 
         /// <summary>
@@ -118,13 +119,15 @@ namespace ACulinaryArtillery.Util {
                t => t,
                // create matchers & mutators for each tuple
                t => (System.Func<LocalBuilder, object, (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator)>)(
-                    (LocalBuilder lb, object operand) => {
+                    (LocalBuilder lb, object operand) =>
+                    {
                         Predicate<CodeInstruction> simpleMatcher = ci => ci.opcode == t.Store || ci.opcode == t.Load;
                         return (
                             Matcher: t.CaptureLocal
                                 ? ci => simpleMatcher(ci) && ci.operand == operand
                                 : simpleMatcher,
-                            Mutator: ci => {
+                            Mutator: ci =>
+                            {
                                 ci.operand = lb;
                                 ci.opcode = ci.opcode == t.Store
                                     ? OpCodes.Stloc
@@ -134,9 +137,9 @@ namespace ACulinaryArtillery.Util {
                     })
             ).SelectMany(
                // flatten list by duplicating via both store & load opcodes per tuple
-               kvp => new[] { 
-                   (kvp.Key.Load, kvp.Key, kvp.Value, kvp.Key.CaptureLocal), 
-                   (kvp.Key.Store, kvp.Key, kvp.Value, kvp.Key.CaptureLocal) 
+               kvp => new[] {
+                   (kvp.Key.Load, kvp.Key, kvp.Value, kvp.Key.CaptureLocal),
+                   (kvp.Key.Store, kvp.Key, kvp.Value, kvp.Key.CaptureLocal)
                }
             ).ToDictionary(
                // make a new dictionary indexed by each opcode
@@ -177,16 +180,18 @@ namespace ACulinaryArtillery.Util {
         /// <param name="targetLocalBuilder">Local builder to redirect local usages to.</param>
         /// <remarks>Result will be <see langword="null" /> if <paramref name="instruction"/> is not a <see cref="OpCodes.Ldloc"/>/<see cref="OpCodes.Stloc"/>
         /// like instruction.</remarks>
-        public (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator, bool CapturesOperand)? this[CodeInstruction instruction, LocalBuilder targetLocalBuilder] {
-            get {
-                if (localRewriterFactories.TryGetValue(instruction.opcode, out var entry)) {
+        public (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator, bool CapturesOperand)? this[CodeInstruction instruction, LocalBuilder targetLocalBuilder]
+        {
+            get
+            {
+                if (localRewriterFactories.TryGetValue(instruction.opcode, out var entry))
+                {
                     var (matcher, mutator) = entry.Factory(targetLocalBuilder, entry.CaptureOperand ? instruction.operand : null);
                     return (matcher, mutator, entry.CaptureOperand);
-                } 
+                }
+
                 return null;
-                
             }
         }
     }
-
 }

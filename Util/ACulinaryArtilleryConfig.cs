@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ACulinaryArtillery.Util
+﻿namespace ACulinaryArtillery.Util
 {
     class ACulinaryArtilleryConfig
     {
@@ -14,7 +10,9 @@ namespace ACulinaryArtillery.Util
         public float BEExpandedOvenBakeTimeMod;
 
         public ACulinaryArtilleryConfig()
-        { }
+        {
+        
+        }
 
         public static ACulinaryArtilleryConfig Current { get; set; }
 

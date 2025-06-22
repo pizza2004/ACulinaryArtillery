@@ -7,10 +7,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 using Vintagestory.API.Util;
-using Vintagestory.ServerMods;
 using Vintagestory.GameContent;
-using Vintagestory.API.Datastructures;
-using Microsoft.Win32;
 
 namespace ACulinaryArtillery
 {
@@ -161,15 +158,12 @@ namespace ACulinaryArtillery
 
         List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> pairInput(ItemSlot[] inputStacks)
         {
-            List<int> alreadyFound = new List<int>();
-
-            Queue<ItemSlot> inputSlotsList = new Queue<ItemSlot>();
-            foreach (var val in inputStacks) if (!val.Empty) inputSlotsList.Enqueue(val);
+            var inputSlotsList = new Queue<ItemSlot>(inputStacks.Where(val => !val.Empty));
 
             if (inputSlotsList.Count != Ingredients.Length) return null;
 
-            List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> matched = new List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>();
-
+            var alreadyFound = new HashSet<int>();
+            var matched = new List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>();
             while (inputSlotsList.Count > 0)
             {
                 ItemSlot inputSlot = inputSlotsList.Dequeue();
@@ -693,11 +687,8 @@ namespace ACulinaryArtillery
 
         public CombustibleProperties Simmering;
 
-        //public JsonItemStack Output;
-
         public ItemStack TryCraftNow(ICoreAPI api, ItemSlot[] inputslots)
         {
-
             var matched = pairInput(inputslots);
 
             ItemStack mixedStack = Simmering.SmeltedStack.ResolvedItemstack.Clone();
@@ -705,18 +696,8 @@ namespace ACulinaryArtillery
 
             if (mixedStack.StackSize <= 0) return null;
 
-            /*
-            TransitionableProperties[] props = mixedStack.Collectible.GetTransitionableProperties(api.World, mixedStack, null);
-            TransitionableProperties perishProps = props != null && props.Length > 0 ? props[0] : null;
-
-            if (perishProps != null)
-            {
-                CollectibleObject.CarryOverFreshness(api, inputslots, new ItemStack[] { mixedStack }, perishProps);
-            }*/
-
             foreach (var val in matched)
             {
-
                 val.Key.TakeOut(val.Value.Quantity * (mixedStack.StackSize / Simmering.SmeltedStack.StackSize));
                 val.Key.MarkDirty();
             }
@@ -726,14 +707,10 @@ namespace ACulinaryArtillery
 
         public bool Matches(IWorldAccessor worldForResolve, ItemSlot[] inputSlots)
         {
-            int outputStackSize = 0;
-
-            List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> matched = pairInput(inputSlots);
+            var matched = pairInput(inputSlots);
             if (matched == null) return false;
 
-            outputStackSize = getOutputSize(matched);
-
-            return outputStackSize >= 0;
+            return getOutputSize(matched) >= 0;
         }
 
         /// <summary>
@@ -744,59 +721,30 @@ namespace ACulinaryArtillery
         /// <returns>the amount of the recipe that can be made</returns>
         public int Match(List<ItemStack> Inputs)
         {
-            if (Inputs.Count != Ingredients.Length) //not the correct amount of ingredients for that recipe
-                return 0;
+            if (Inputs.Count != Ingredients.Length) return 0; //not the correct amount of ingredients for that recipe
 
-            List<CraftingRecipeIngredient> matched = new List<CraftingRecipeIngredient>();
+            var matched = new List<CraftingRecipeIngredient>();
             int amountForTheRecipe = -1;
 
             foreach (ItemStack input in Inputs)
             {
-                CraftingRecipeIngredient match = null;
+                // First check if we have a matching ingredient, and whether we've already matched that ingredient before
+                var match = Ingredients.FirstOrDefault(ing => (ing.ResolvedItemstack != null || ing.IsWildCard) && matched.Contains(ing) && ing.SatisfiesAsIngredient(input));
 
-                foreach (CraftingRecipeIngredient ing in Ingredients)   //check if this input item is in the recipe
-                {
-                    if (
-                        (ing.ResolvedItemstack == null && !ing.IsWildCard)  //this ingredient is somehow null, but is not a wildcard
-                        || matched.Contains(ing)                            //this ingredient is already matched 
-                        || !ing.SatisfiesAsIngredient(input)                //the input does not match the ingredient
-                    )
-                        continue;
+                if (match == null) return 0; // didn't find a match for the input in previous step
+                if (input.StackSize % match.Quantity != 0) return 0; //this particular ingredient is not in enough quantity for full portions
+                if (input.StackSize / match.Quantity % Simmering.SmeltedRatio != 0) return 0; //same but taking the smeltedRatio into account ? would love to see an example where that's needed
 
-                    match = ing;                                            //otherwise the input satisfies as a an ingredient, no need to look further
-                    break;
-                }
-
-                if (
-                    match == null                                                           //didn't find a match for the input in previous step
-                    || input.StackSize % match.Quantity != 0                                //this particular ingredient is not in enough quantity for full portions
-                    || ((input.StackSize / match.Quantity) % Simmering.SmeltedRatio != 0)   //same but taking the smeltedRation into account ? would love to see an example where that's needed
-                    )
-                    return 0;
-
-                int amountForThisIngredient = (input.StackSize / match.Quantity) / Simmering.SmeltedRatio;
+                int amountForThisIngredient = input.StackSize / match.Quantity / Simmering.SmeltedRatio;
 
                 if (amountForThisIngredient > 0)    //the ingredient can at least produce a portion
                 {
-                    if (amountForTheRecipe == -1)   //first match
-                    {
-                        amountForTheRecipe = amountForThisIngredient;   //we set the target amount of portions
-                    }
+                    if (amountForTheRecipe == -1) amountForTheRecipe = amountForThisIngredient;   // on the first match we set the target amount of portions
 
-                    if (amountForThisIngredient == amountForTheRecipe)  //this ingredient matches the target amount, add it 
-                    {
-                        matched.Add(match);
-                    }
-                    else
-                    {
-                        return 0;   //we only want perfectly proportioned ingredients
-                    }
-
+                    if (amountForThisIngredient != amountForTheRecipe) return 0;   //we only want perfectly proportioned ingredients
+                    else matched.Add(match); //this ingredient matches the target amount, add it 
                 }
-                else
-                {
-                    return 0;   //we need at least a full portion!
-                }
+                else return 0;      //we need at least a full portion!
             }
 
             return amountForTheRecipe;
@@ -820,10 +768,9 @@ namespace ACulinaryArtillery
 
                 for (int i = 0; i < Ingredients.Length; i++)
                 {
-
                     if (Ingredients[i].SatisfiesAsIngredient(inputSlot.Itemstack) && !alreadyFound.Contains(i))
                     {
-                        matched.Add(new KeyValuePair<ItemSlot, CraftingRecipeIngredient>(inputSlot, Ingredients[i]));
+                        matched.Add(new(inputSlot, Ingredients[i]));
                         alreadyFound.Add(i);
                         found = true;
                         break;
@@ -832,16 +779,11 @@ namespace ACulinaryArtillery
 
                 if (!found) return null;
             }
-
-            // We're missing ingredients
-            if (matched.Count != Ingredients.Length)
-            {
-                return null;
-            }
+            
+            if (matched.Count != Ingredients.Length) return null; // We're missing ingredients
 
             return matched;
         }
-
 
         int getOutputSize(List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> matched)
         {
@@ -849,32 +791,20 @@ namespace ACulinaryArtillery
 
             foreach (var val in matched)
             {
-                ItemSlot inputSlot = val.Key;
-                CraftingRecipeIngredient ingred = val.Value;
-                int posChange = inputSlot.StackSize / ingred.Quantity;
+                int posChange = val.Key.StackSize / val.Value.Quantity;
 
                 if (posChange < outQuantityMul || outQuantityMul == -1) outQuantityMul = posChange;
             }
 
-            if (outQuantityMul == -1)
-            {
-                return -1;
-            }
-
+            if (outQuantityMul == -1) return -1;
 
             foreach (var val in matched)
             {
-                ItemSlot inputSlot = val.Key;
-                CraftingRecipeIngredient ingred = val.Value;
-
-
                 // Must have same or more than the total crafted amount
-                if (inputSlot.StackSize < ingred.Quantity * outQuantityMul) return -1;
-
+                if (val.Key.StackSize < val.Value.Quantity * outQuantityMul) return -1;
             }
 
-            outQuantityMul = 1;
-            return Simmering.SmeltedStack.StackSize * outQuantityMul;
+            return Simmering.SmeltedStack.StackSize;
         }
 
         public string GetOutputName()
@@ -946,74 +876,33 @@ namespace ACulinaryArtillery
 
         public SimmerRecipe Clone()
         {
-            CraftingRecipeIngredient[] ingredients = new CraftingRecipeIngredient[Ingredients.Length];
-            for (int i = 0; i < Ingredients.Length; i++)
-            {
-                ingredients[i] = Ingredients[i].Clone();
-            }
-
-            return new SimmerRecipe()
+            return new()
             {
                 Simmering = Simmering.Clone(),
                 Code = Code,
                 Enabled = Enabled,
                 Name = Name,
-                Ingredients = ingredients
+                Ingredients = [.. Ingredients.Select(ingred => ingred.Clone())]
             };
         }
 
         public Dictionary<string, string[]> GetNameToCodeMapping(IWorldAccessor world)
         {
-            Dictionary<string, string[]> mappings = new Dictionary<string, string[]>();
+            var mappings = new Dictionary<string, string[]>();
 
             if (Ingredients == null || Ingredients.Length == 0) return mappings;
 
-            foreach (var ingreds in Ingredients)
+            foreach (var ingred in Ingredients)
             {
-                if (Ingredients.Length <= 0) continue;
-                CraftingRecipeIngredient ingred = ingreds;
-                if (ingred == null || !ingred.Code.Path.Contains("*") || ingred.Name == null) continue;
+                if (ingred?.Name == null || !ingred.Code.Path.Contains("*")) continue;
 
                 int wildcardStartLen = ingred.Code.Path.IndexOf("*");
                 int wildcardEndLen = ingred.Code.Path.Length - wildcardStartLen - 1;
 
-                List<string> codes = new List<string>();
-
-                if (ingred.Type == EnumItemClass.Block)
-                {
-                    for (int i = 0; i < world.Blocks.Count; i++)
-                    {
-                        if (world.Blocks[i].Code == null || world.Blocks[i].IsMissing) continue;
-
-                        if (WildcardUtil.Match(ingred.Code, world.Blocks[i].Code))
-                        {
-                            string code = world.Blocks[i].Code.Path.Substring(wildcardStartLen);
-                            string codepart = code.Substring(0, code.Length - wildcardEndLen);
-                            if (ingred.AllowedVariants != null && !ingred.AllowedVariants.Contains(codepart)) continue;
-
-                            codes.Add(codepart);
-
-                        }
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < world.Items.Count; i++)
-                    {
-                        if (world.Items[i].Code == null || world.Items[i].IsMissing) continue;
-
-                        if (WildcardUtil.Match(ingred.Code, world.Items[i].Code))
-                        {
-                            string code = world.Items[i].Code.Path.Substring(wildcardStartLen);
-                            string codepart = code.Substring(0, code.Length - wildcardEndLen);
-                            if (ingred.AllowedVariants != null && !ingred.AllowedVariants.Contains(codepart)) continue;
-
-                            codes.Add(codepart);
-                        }
-                    }
-                }
-
-                mappings[ingred.Name] = codes.ToArray();
+                mappings[ingred.Name] = [.. world.Collectibles.Where(obj => obj.ItemClass == ingred.Type && obj.Code != null && !obj.IsMissing && WildcardUtil.Match(ingred.Code, obj.Code))
+                                                              .Select(obj => obj.Code.Path.Substring(wildcardStartLen))
+                                                              .Select(code => code.Substring(0, code.Length - wildcardEndLen))
+                                                              .Where(codepart => ingred.AllowedVariants?.Contains(codepart) != false)];
             }
 
             return mappings;

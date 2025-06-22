@@ -13,24 +13,16 @@ namespace ACulinaryArtillery
 
             TransitionableProperties[] propsm = GetTransitionableProperties(world, inslot?.Itemstack, null);
 
-            if (itemstack == null || propsm == null || propsm.Length == 0)
-            {
-                return null;
-            }
+            if (itemstack == null || propsm == null || propsm.Length == 0) return null;
 
-            if (itemstack.Attributes == null)
-            {
-                itemstack.Attributes = new TreeAttribute();
-            }
+            itemstack.Attributes ??= new TreeAttribute();
 
-            if (!(itemstack.Attributes["transitionstate"] is ITreeAttribute))
+            if (itemstack.Attributes["transitionstate"] is not ITreeAttribute)
             {
                 itemstack.Attributes["transitionstate"] = new TreeAttribute();
             }
 
             ITreeAttribute attr = (ITreeAttribute)itemstack.Attributes["transitionstate"];
-
-            //TransitionableProperties[] props = itemstack.Collectible.TransitionableProps; - WTF is this here for? we already have propsm
 
             float[] transitionedHours;
             float[] freshHours;
@@ -53,7 +45,8 @@ namespace ACulinaryArtillery
                     {
                         freshHours[i] = propsm[i].FreshHours.nextFloat(1, world.Rand);
                         transitionHours[i] = propsm[i].TransitionHours.nextFloat(1, world.Rand);
-                    } else
+                    }
+                    else
                     {
                         freshHours[i] = 0;
                         transitionHours[i] = 0;
@@ -74,7 +67,6 @@ namespace ACulinaryArtillery
             double lastUpdatedTotalHours = attr.GetDouble("lastUpdatedTotalHours");
             double nowTotalHours = world.Calendar.TotalHours;
 
-
             bool nowSpoiling = false;
 
             float hoursPassed = (float)(nowTotalHours - lastUpdatedTotalHours);
@@ -90,11 +82,6 @@ namespace ACulinaryArtillery
                 {
                     float hoursPassedAdjusted = hoursPassed * transitionRateMul;
                     transitionedHours[i] += hoursPassedAdjusted;
-
-                    /*if (api.World.Side == EnumAppSide.Server && inslot.Inventory.ClassName == "chest")
-                    {
-                        Console.WriteLine(hoursPassed + " hours passed. " + inslot.Itemstack.Collectible.Code + " spoil by " + transitionRateMul + "x. Is inside " + inslot.Inventory.ClassName + " {0}/{1}", transitionedHours[i], freshHours[i]);
-                    }*/
                 }
 
                 float freshHoursLeft = Math.Max(0, freshHours[i] - transitionedHours[i]);
@@ -142,16 +129,11 @@ namespace ACulinaryArtillery
                     FreshHours = freshHours[i],
                     Props = prop
                 };
-
-                //if (transitionRateMul > 0) break; // Only do one transformation at the time (i.e. food can not cure and perish at the same time) - Tyron 9/oct 2020, but why not at the same time? We need it for cheese ripening
             }
 
-            if (hoursPassed > 0.05f)
-            {
-                attr.SetDouble("lastUpdatedTotalHours", nowTotalHours);
-            }
+            if (hoursPassed > 0.05f) attr.SetDouble("lastUpdatedTotalHours", nowTotalHours);
 
-            return states.Where(s => s != null).OrderBy(s => (int)s.Props.Type).ToArray();
+            return [.. states.Where(s => s != null).OrderBy(s => (int)s.Props.Type)];
         }
 
         public override TransitionState UpdateAndGetTransitionState(IWorldAccessor world, ItemSlot inslot, EnumTransitionType type)

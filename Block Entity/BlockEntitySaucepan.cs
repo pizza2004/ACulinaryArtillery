@@ -1,12 +1,9 @@
 ﻿using ACulinaryArtillery.Block_Entity;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery
@@ -14,18 +11,18 @@ namespace ACulinaryArtillery
     public class BlockEntitySaucepan : BlockEntityBucket
     {
         MeshData currentRightMesh;
-        BlockSaucepan ownBlock;
         public bool isSealed;
+
+        BlockSaucepan ownBlock => Block as BlockSaucepan;
+
         public BlockEntitySaucepan()
         {
-            container = new BESaucepanContainer(this,() => Inventory, "inventory");
+            container = new BESaucepanContainer(this, () => Inventory, "inventory");
         }
+
         public override void Initialize(ICoreAPI api)
         {
             base.Initialize(api);
-            //Inventory.OnAcquireTransitionSpeed += Inventory_OnAcquireTransitionSpeed;
-            ownBlock = Block as BlockSaucepan;
-
 
             if (Api.Side == EnumAppSide.Client)
             {
@@ -34,21 +31,11 @@ namespace ACulinaryArtillery
             }
         }
 
-        /*
-        private float Inventory_OnAcquireTransitionSpeed(EnumTransitionType transType, ItemStack stack, float mulByConfig)
-        {
-            float rate = container.GetPerishRate() * (isSealed ? Block.Attributes["lidPerishRate"].AsFloat(0.5f) : 1f);
-            float mul = Inventory.GetTransitionSpeedMul(transType, stack);
-            return mul * rate;
-
-        }
-        */
-
         public override void OnBlockPlaced(ItemStack byItemStack = null)
         {
             base.OnBlockPlaced(byItemStack);
 
-            if (byItemStack != null) isSealed = byItemStack.Attributes.GetBool("isSealed");
+            isSealed = byItemStack?.Attributes.TryGetBool("isSealed") ?? false;
 
             if (Api.Side == EnumAppSide.Client)
             {
@@ -87,7 +74,7 @@ namespace ACulinaryArtillery
 
         internal MeshData GenRightMesh()
         {
-            if (ownBlock == null || ownBlock.Code.Path.Contains("clay")) return null;
+            if (ownBlock?.Code.Path.Contains("clay") != false) return null;
 
             MeshData mesh = ownBlock.GenRightMesh(Api as ICoreClientAPI, GetContent(), Pos, isSealed);
 
@@ -116,12 +103,5 @@ namespace ACulinaryArtillery
                 currentRightMesh = GenRightMesh();
             }
         }
-
-        /*
-        public override float GetPerishRate()
-        {
-            return base.GetPerishRate() * (isSealed ? Block.Attributes["lidPerishRate"].AsFloat(0.5f) : 1f);
-        }
-        */
     }
 }

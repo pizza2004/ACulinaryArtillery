@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Vintagestory.API.Common;
-using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
@@ -18,7 +13,7 @@ namespace ACulinaryArtillery
     public class InventoryMixingBowl : InventoryBase, ISlotProvider
     {
         ItemSlot[] slots;
-        public ItemSlot[] Slots { get { return slots; } }
+        public ItemSlot[] Slots => slots;
         BlockEntityMixingBowl machine;
 
         public InventoryMixingBowl(string inventoryID, ICoreAPI api, BlockEntityMixingBowl bowl) : base(inventoryID, api)
@@ -28,14 +23,10 @@ namespace ACulinaryArtillery
             //slots 2-7 = ingredients
             machine = bowl;
             slots = GenEmptySlots(8);
-
         }
 
 
-        public override int Count
-        {
-            get { return 8; }
-        }
+        public override int Count => 8;
 
         public override ItemSlot this[int slotId]
         {
@@ -59,7 +50,7 @@ namespace ACulinaryArtillery
 
             if (Api != null)
             {
-                for (int i = 2; i < this.Count; i++)
+                for (int i = 2; i < Count; i++)
                 {
                     this[i].MaxSlotStackSize = 6;
                     (this[i] as ItemSlotMixingBowl).Set(machine, i - 2);
@@ -95,14 +86,6 @@ namespace ACulinaryArtillery
 
             return goingTo == slots[1] ? slots[0] : goingTo;
         }
-
-        public override bool CanPlayerAccess(IPlayer player, EntityPos position)
-        {
-            bool result = base.CanPlayerAccess(player, position);
-            if (!result) return result;
-            return result;
-        }
-
     }
 
     public class ItemSlotMixingBowl : ItemSlot
@@ -148,9 +131,9 @@ namespace ACulinaryArtillery
             if (sourceSlot.Itemstack.Collectible is ILiquidSource source && source.AllowHeldLiquidTransfer)
             {
                 ItemSlotMixingBowl mixingSlot = inventory[1] as ItemSlotMixingBowl;
-    
+
                 ItemStack liquidcontainerbaseContents = source.GetContent(sourceSlot.Itemstack);
-                bool stackable = !this.Empty && this.Itemstack.Equals(world, liquidcontainerbaseContents, GlobalConstants.IgnoredStackAttributes);
+                bool stackable = !Empty && Itemstack.Equals(world, liquidcontainerbaseContents, GlobalConstants.IgnoredStackAttributes);
 
                 if ((Empty || stackable) && liquidcontainerbaseContents != null && !machine.invLocked)
                 {
@@ -172,10 +155,10 @@ namespace ACulinaryArtillery
                         ItemStack takenContentStack = source.TryTakeContent(liquidcontainerbaseStack, moveQuantity / liquidcontainerbaseStack.StackSize);
 
                         takenContentStack.StackSize *= liquidcontainerbaseStack.StackSize;
-                        takenContentStack.StackSize += this.StackSize;
-                        
-                        this.Itemstack = takenContentStack;
-                        this.MarkDirty();
+                        takenContentStack.StackSize += StackSize;
+
+                        Itemstack = takenContentStack;
+                        MarkDirty();
                         op.MovedQuantity = moveQuantity;
 
                         var pos = op.ActingPlayer?.Entity?.Pos;
@@ -231,15 +214,12 @@ namespace ACulinaryArtillery
             IWorldAccessor world = inventory.Api.World;
 
             BlockLiquidContainerBase liquidcontainerbaseblock = sourceSlot.Itemstack?.Block as BlockLiquidContainerBase;
-            if (sourceSlot?.Itemstack?.Collectible is ILiquidSink sink && !this.Empty && sink.AllowHeldLiquidTransfer)
+            if (sourceSlot?.Itemstack?.Collectible is ILiquidSink sink && !Empty && sink.AllowHeldLiquidTransfer)
             {
-                ItemStack mixSlotStack = this.Itemstack;
+                ItemStack mixSlotStack = Itemstack;
                 var curTargetLiquidStack = sink.GetContent(sourceSlot.Itemstack);
 
-                bool liquidstackable = curTargetLiquidStack==null || mixSlotStack.Equals(world, curTargetLiquidStack, GlobalConstants.IgnoredStackAttributes);
-
-                //if (Empty) return;
-                //ItemStack liquidcontainerbaseContents = liquidcontainerbaseblock.GetContent(sourceSlot.Itemstack);
+                bool liquidstackable = curTargetLiquidStack == null || mixSlotStack.Equals(world, curTargetLiquidStack, GlobalConstants.IgnoredStackAttributes);
 
                 if (liquidstackable)
                 {
@@ -257,9 +237,9 @@ namespace ACulinaryArtillery
                     {
                         op.MovedQuantity = sink.TryPutLiquid(sourceSlot.Itemstack, mixSlotStack, toMoveLitres / sourceSlot.StackSize);
 
-                        this.Itemstack.StackSize -= op.MovedQuantity * sourceSlot.StackSize;
-                        if (this.Itemstack.StackSize <= 0) this.Itemstack = null;
-                        this.MarkDirty();
+                        Itemstack.StackSize -= op.MovedQuantity * sourceSlot.StackSize;
+                        if (Itemstack.StackSize <= 0) this.Itemstack = null;
+                        MarkDirty();
                         sourceSlot.MarkDirty();
 
                         var pos = op.ActingPlayer?.Entity?.Pos;
@@ -298,8 +278,6 @@ namespace ACulinaryArtillery
                 return;
             }
 
-            //if (sourceSlot.Itemstack?.ItemAttributes?["contentItem2BlockCodes"].Exists == true || sourceSlot.Itemstack?.ItemAttributes?["contentItemCode"].AsString() != null) return;
-
             base.ActivateSlotRightClick(sourceSlot, ref op);
         }
 
@@ -322,9 +300,9 @@ namespace ACulinaryArtillery
 
     public class ItemSlotPotInput : ItemSlot
     {
-
         public ItemSlotPotInput(InventoryBase inventory) : base(inventory)
         {
+
         }
 
         public override bool CanHold(ItemSlot slot)
