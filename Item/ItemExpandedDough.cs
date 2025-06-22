@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -12,25 +12,15 @@ namespace ACulinaryArtillery
         ItemStack[] tableStacks;
         public override void OnLoaded(ICoreAPI api)
         {
-            if (tableStacks == null)
-            {
-                List<ItemStack> stacks = new List<ItemStack>();
-                foreach (CollectibleObject obj in api.World.Collectibles)
-                {
-                    if (obj is Block block && block.Attributes?.IsTrue("pieFormingSurface") == true)
-                    {
-                        stacks.Add(new ItemStack(obj));
-                    }
-                }
+            tableStacks ??= [.. api.World.Collectibles.Where(obj => (obj as Block)?.Attributes?["pieFormingSurface"].AsBool() == true).Select(obj => new ItemStack(obj))];
 
-                tableStacks = stacks.ToArray();
-            }
             base.OnLoaded(api);
-;
         }
+
         public override void OnUnloaded(ICoreAPI api)
         {
             tableStacks = null;
+
             base.OnUnloaded(api);
         }
 
@@ -41,27 +31,22 @@ namespace ACulinaryArtillery
                 var block = api.World.BlockAccessor.GetBlock(blockSel.Position);
                 if (block.Attributes?.IsTrue("pieFormingSurface") == true)
                 {
-                    if (slot.StackSize >= 2)
-                    {
-                        BlockPie blockform = api.World.GetBlock(new AssetLocation("game:pie-raw")) as BlockPie;
-                        blockform.TryPlacePie(byEntity, blockSel);
-                    }
-                    else
-                    {
-                        ICoreClientAPI capi = api as ICoreClientAPI;
-                        if (capi != null) capi.TriggerIngameError(this, "notpieable", Lang.Get("Need at least 2 dough"));
-                    }
+                    if (slot.StackSize >= 2) (api.World.GetBlock(new AssetLocation("game:pie-raw")) as BlockPie)?.TryPlacePie(byEntity, blockSel);
+                    else (api as ICoreClientAPI)?.TriggerIngameError(this, "notpieable", Lang.Get("Need at least 2 dough"));
+
                     handling = EnumHandHandling.PreventDefault;
                     return;
                 }
             }
+
             base.OnHeldInteractStart(slot, byEntity, blockSel, entitySel, firstEvent, ref handling);
         }
 
         public override WorldInteraction[] GetHeldInteractionHelp(ItemSlot inSlot)
         {
-            return new WorldInteraction[] {
-                new WorldInteraction()
+            return new WorldInteraction[]
+            {
+                new()
                 {
                     ActionLangCode = "heldhelp-makepie",
                     Itemstacks = tableStacks,
@@ -72,5 +57,4 @@ namespace ACulinaryArtillery
         }
     }
 
-    
 }

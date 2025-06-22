@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Vintagestory.API.Common;
 
 namespace ACulinaryArtillery
 {
     public static class ShapeUtilExtensions
     {
-
         public static Shape RemoveReflective(this Shape shape)
         {
             foreach (var element in shape.Elements)
@@ -24,17 +19,14 @@ namespace ACulinaryArtillery
 
         public static Shape FlattenHierarchy(this Shape shape)
         {
-            shape.Elements = FlattenHierarchy(shape.Elements).ToArray();
+            shape.Elements = [.. FlattenHierarchy(shape.Elements)];
             return shape;
         }
 
         public static List<ShapeElement> FlattenHierarchy(ShapeElement[] rootElements)
         {
             var flatList = new List<ShapeElement>();
-            foreach (var element in rootElements)
-            {
-                FlattenHierarchyHelper(element, flatList);
-            }
+            foreach (var element in rootElements) FlattenHierarchyHelper(element, flatList);
             return flatList;
         }
 

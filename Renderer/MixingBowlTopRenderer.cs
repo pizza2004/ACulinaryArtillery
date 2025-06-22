@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vintagestory.API.Client;
+﻿using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent.Mechanics;
 
@@ -20,17 +15,16 @@ namespace ACulinaryArtillery
         private ICoreClientAPI api;
         private BlockPos pos;
 
-
         MeshRef meshref;
         public Matrixf ModelMat = new Matrixf();
 
         public float AngleRad;
 
-        public MixingBowlTopRenderer(ICoreClientAPI coreClientAPI, BlockPos pos, MeshData mesh)
+        public MixingBowlTopRenderer(ICoreClientAPI capi, BlockPos pos, MeshData mesh)
         {
-            this.api = coreClientAPI;
+            this.api = capi;
             this.pos = pos;
-            meshref = coreClientAPI.Render.UploadMesh(mesh);
+            meshref = capi.Render.UploadMesh(mesh);
         }
 
         public double RenderOrder
@@ -39,9 +33,6 @@ namespace ACulinaryArtillery
         }
 
         public int RenderRange => 24;
-
-
-
 
         public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
         {
@@ -55,7 +46,6 @@ namespace ACulinaryArtillery
 
             IStandardShaderProgram prog = rpi.PreparedStandardShader(pos.X, pos.Y, pos.Z);
             prog.Tex2D = api.BlockTextureAtlas.AtlasTextures[0].TextureId;
-
 
             prog.ModelMatrix = ModelMat
                 .Identity()
@@ -71,8 +61,6 @@ namespace ACulinaryArtillery
             rpi.RenderMesh(meshref);
             prog.Stop();
 
-
-
             if (ShouldRotateManual)
             {
                 AngleRad += deltaTime * 40 * GameMath.DEG2RAD;
@@ -84,15 +72,11 @@ namespace ACulinaryArtillery
             }
         }
 
-
-
         public void Dispose()
         {
             api.Event.UnregisterRenderer(this, EnumRenderStage.Opaque);
 
             meshref?.Dispose();
         }
-
-
     }
 }

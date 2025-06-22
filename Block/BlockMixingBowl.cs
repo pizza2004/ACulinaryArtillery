@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Util;
 using Vintagestory.GameContent.Mechanics;
@@ -19,25 +14,23 @@ namespace ACulinaryArtillery
         public override void OnLoaded(ICoreAPI api)
         {
             base.OnLoaded(api);
-            if (Attributes?["capacityLitres"].Exists == true)
-            {
-                CapacityLitres = Attributes["capacityLitres"].AsInt(CapacityLitres);
-            }
+            
+            CapacityLitres = Attributes?["capacityLitres"]?.AsInt(CapacityLitres) ?? CapacityLitres;
         }
 
         public override bool TryPlaceBlock(IWorldAccessor world, IPlayer byPlayer, ItemStack itemstack, BlockSelection blockSel, ref string failureCode)
         {
-            bool ok = base.TryPlaceBlock(world, byPlayer, itemstack, blockSel, ref failureCode);
-
-            if (ok)
+            if (base.TryPlaceBlock(world, byPlayer, itemstack, blockSel, ref failureCode))
             {
                 if (!tryConnect(world, byPlayer, blockSel.Position, BlockFacing.UP))
                 {
                     tryConnect(world, byPlayer, blockSel.Position, BlockFacing.DOWN);
                 }
+
+                return true;
             }
 
-            return ok;
+            return false;
         }
 
         public override bool DoParticalSelection(IWorldAccessor world, BlockPos pos)
@@ -47,14 +40,19 @@ namespace ACulinaryArtillery
 
         public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
         {
-            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl;
-
-            if (byPlayer.Entity.Controls.Sprint && beBowl != null && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID))) { beBowl.ToggleLock(byPlayer); return true; }
-
-            if (beBowl != null && beBowl.CanMix() && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
+            if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityMixingBowl beBowl)
             {
-                beBowl.SetPlayerMixing(byPlayer, true);
-                return true;
+                if (byPlayer.Entity.Controls.Sprint &&(blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
+                {
+                    beBowl.ToggleLock(byPlayer);
+                    return true;
+                }
+
+                if (beBowl.CanMix() && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
+                {
+                    beBowl.SetPlayerMixing(byPlayer, true);
+                    return true;
+                }
             }
 
             return base.OnBlockInteractStart(world, byPlayer, blockSel);
@@ -62,9 +60,8 @@ namespace ACulinaryArtillery
 
         public override bool OnBlockInteractStep(float secondsUsed, IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
         {
-            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl;
-
-            if (beBowl != null && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
+            if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityMixingBowl beBowl &&
+                (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
             {
                 beBowl.IsMixing(byPlayer);
                 return beBowl.CanMix();
@@ -75,22 +72,12 @@ namespace ACulinaryArtillery
 
         public override void OnBlockInteractStop(float secondsUsed, IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
         {
-            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl;
-            if (beBowl != null)
-            {
-                beBowl.SetPlayerMixing(byPlayer, false);
-            }
-
+            (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl)?.SetPlayerMixing(byPlayer, false);
         }
 
         public override bool OnBlockInteractCancel(float secondsUsed, IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, EnumItemUseCancelReason cancelReason)
         {
-            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl;
-            if (beBowl != null)
-            {
-                beBowl.SetPlayerMixing(byPlayer, false);
-            }
-
+            (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMixingBowl)?.SetPlayerMixing(byPlayer, false);
 
             return true;
         }
@@ -99,8 +86,9 @@ namespace ACulinaryArtillery
         {
             if (selection.SelectionBoxIndex == 0)
             {
-                return new WorldInteraction[] {
-                    new WorldInteraction()
+                return new WorldInteraction[] 
+                {
+                    new()
                     {
                         ActionLangCode = "blockhelp-quern-addremoveitems",
                         MouseButton = EnumMouseButton.Right
@@ -109,35 +97,27 @@ namespace ACulinaryArtillery
             }
             else
             {
-                return new WorldInteraction[] {
-                    new WorldInteraction()
+                return new WorldInteraction[]
+                {
+                    new()
                     {
                         ActionLangCode = "aculinaryartillery:blockhelp-mixingbowl-mix",
                         MouseButton = EnumMouseButton.Right,
-                        ShouldApply = (wi, bs, es) => {
-                            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl;
-                            return beBowl != null && beBowl.CanMix();
-                        }
+                        ShouldApply = (wi, bs, es) =>  (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl)?.CanMix() == true
                     },
-                    new WorldInteraction()
+                    new()
                     {
                         ActionLangCode = "aculinaryartillery:blockhelp-mixingbowl-autounlock",
                         MouseButton = EnumMouseButton.Right,
                         HotKeyCode = "sprint",
-                        ShouldApply = (wi, bs, es) => {
-                            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl;
-                            return beBowl != null && beBowl.invLocked;
-                        }
+                        ShouldApply = (wi, bs, es) => (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl)?.invLocked == true
                     },
-                    new WorldInteraction()
+                    new()
                     {
                         ActionLangCode = "aculinaryartillery:blockhelp-mixingbowl-autolock",
                         MouseButton = EnumMouseButton.Right,
                         HotKeyCode = "sprint",
-                        ShouldApply = (wi, bs, es) => {
-                            BlockEntityMixingBowl beBowl = world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl;
-                            return beBowl != null && !beBowl.invLocked;
-                        }
+                        ShouldApply = (wi, bs, es) => (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl)?.invLocked == false
                     }
                 }.Append(base.GetPlacedBlockInteractionHelp(world, selection, forPlayer));
             }
