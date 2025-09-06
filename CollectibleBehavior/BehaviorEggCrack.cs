@@ -15,6 +15,12 @@ namespace ACulinaryArtillery
     {
         public float ContainedEggLitres { get; set; }
         public bool IsCrackableEggType { get; set; }
+        public bool IsEggYolk { get; set; }
+        protected AssetLocation? whiteLiquidCode { get; set; }
+        protected AssetLocation? yolkLiquidCode { get; set; }
+        protected AssetLocation? fullLiquidCode { get; set; }
+        protected AssetLocation? eggYolkCode { get; set; }
+        protected AssetLocation? eggShellCode { get; set; }
 
         public SimpleParticleProperties particles;
         Random rand = new Random();
@@ -28,14 +34,66 @@ namespace ACulinaryArtillery
         {
             base.Initialize(properties);
 
-            ContainedEggLitres = properties["containedEggLitres"].AsFloat(0.1f);
+            SqueezeTime = properties["crackTime"].AsFloat(0.5f);
+            SqueezedLitres = ContainedEggLitres = properties["containedEggLitres"].AsFloat(0.1f);
             IsCrackableEggType = properties["isCrackableEggType"].AsBool(true);
+            IsEggYolk = properties["isEggYolk"].AsBool(false);
             AnimationCode = properties["AnimationCode"].AsString("eggcrackstart");
+
+            string code = properties["crackingSound"].AsString("aculinaryartillery:sounds/player/eggcrack");
+            if (code != null)
+            {
+                SqueezingSound = AssetLocation.Create(code, collObj.Code.Domain);
+            }
+
+            string eggVariant = collObj.Variant["source"] ?? collObj.FirstCodePart(1);
+            code = properties["whiteLiquidCode"].AsString("aculinaryartillery:eggwhiteportion");
+            if (code != null)
+            {
+                liquidItemCode = whiteLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
+            }
+
+            code = properties["yolkLiquidCode"].AsString("aculinaryartillery:eggyolkportion-" + eggVariant);
+            if (code != null)
+            {
+                yolkLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
+            }
+
+            code = properties["fullLiquidCode"].AsString("aculinaryartillery:eggyolkfullportion-" + eggVariant);
+            if (code != null)
+            {
+                fullLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
+            }
+
+            code = properties["eggYolkCode"].AsString("aculinaryartillery:eggyolk-" + eggVariant);
+            if (code != null)
+            {
+                eggYolkCode = AssetLocation.Create(code, collObj.Code.Domain);
+            }
+
+            code = properties["eggShellCode"].AsString("aculinaryartillery:eggshell");
+            if (code != null)
+            {
+                eggShellCode = AssetLocation.Create(code, collObj.Code.Domain);
+            }
         }
 
         WorldInteraction[] interactions;
         public override void OnLoaded(ICoreAPI api)
         {
+            Item item = api.World.GetItem(yolkLiquidCode);
+            float yolkItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
+
+            item = api.World.GetItem(fullLiquidCode);
+            float fullItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
+
+            ReturnStacks = [
+                new () {Type = EnumItemClass.Item, Code = yolkLiquidCode, StackSize = (int)(ContainedEggLitres * yolkItemsPerLitre)},
+                new () {Type = EnumItemClass.Item, Code = fullLiquidCode, StackSize = (int)(ContainedEggLitres * fullItemsPerLitre)},
+                new () {Type = EnumItemClass.Item, Code = eggYolkCode},
+                new () {Type = EnumItemClass.Item, Code = eggShellCode}
+            ];
+
             base.OnLoaded(api);
 
             if (api is not ICoreClientAPI capi) return;
@@ -81,23 +139,23 @@ namespace ACulinaryArtillery
                     tf.Translation.Set(Math.Min(0.6f, secondsUsed * 2), 0, 0);
                     tf.Rotation.Y = Math.Min(20, secondsUsed * 90 * 2f);
 
-                    if (secondsUsed > 0.37f)
+                    if (secondsUsed > SqueezeTime - 0.13f)
                     {
                         tf.Translation.X += (float)Math.Sin(secondsUsed / 60);
                     }
 
-                    if (secondsUsed > 0.4f)
+                    if (secondsUsed > SqueezeTime - 0.1f)
                     {
                         tf.Translation.X += (float)Math.Sin(Math.Min(1.0, secondsUsed) * 5) * 0.75f;
                     }
 
-                    if (secondsUsed > 0.49f)
+                    if (secondsUsed > SqueezeTime - 0.01f)
                     {
                         byEntity.AnimManager.StopAnimation(AnimationCode);
                     }
                 }
 
-                return secondsUsed < 0.5f;
+                return secondsUsed < SqueezeTime;
             }
 
             return base.OnHeldInteractStep(secondsUsed, slot, byEntity, blockSel, entitySel, ref handling);
@@ -108,38 +166,27 @@ namespace ACulinaryArtillery
             byEntity.AnimManager.StopAnimation(AnimationCode);
 
             if (blockSel == null) return;
-            if (secondsUsed < 0.48f) return;
+            if (secondsUsed < SqueezeTime - 0.02f) return;
 
             IWorldAccessor world = byEntity.World;
             IBlockAccessor blockAccessor = world.BlockAccessor;
             Block block = blockAccessor.GetBlock(blockSel.Position);
 
-            string eggType = slot.Itemstack.Collectible.FirstCodePart(0);   //grabs currently held item's code
-            string eggVariant = slot.Itemstack.Collectible.FirstCodePart(1);   //grabs 1st variant in currently held item
-            string eggWhiteLiquidAsset = "aculinaryartillery:eggwhiteportion";             //default liquid output
-            string eggYolkOutput = "aculinaryartillery:eggyolk-" + eggVariant;       //searches for eggVariant and adds to eggyolk item
-            string eggYolkLiquidAsset = "aculinaryartillery:eggyolkportion-" + eggVariant; //searches for eggVariant and adds to eggyolkportion item
-            string eggYolkFullLiquidAsset = "aculinaryartillery:eggyolkfullportion-" + eggVariant; //searches for eggVariant and adds to eggyolkfullportion item
-            string eggShellOutput = "aculinaryartillery:eggshell";                    //default item output
-
-            ItemStack eggWhiteStack = new ItemStack(world.GetItem(new AssetLocation(eggWhiteLiquidAsset)), 99999);
-            ItemStack eggYolkStack = new ItemStack(world.GetItem(new AssetLocation(eggYolkLiquidAsset)), 99999);
-            ItemStack eggYolkFullStack = new ItemStack(world.GetItem(new AssetLocation(eggYolkFullLiquidAsset)), 99999);
-            ItemStack stack = new ItemStack(world.GetItem(new AssetLocation(eggShellOutput)));
-
-            (ItemStack liquid, bool giveYolk) = (byEntity.Controls.Sprint, eggType) switch
+            Item liquidItem = byEntity.Controls.Sprint switch
             {
-                (true, var type) when IsCrackableEggType => (eggYolkFullStack, false),
-                (false, var type) when IsCrackableEggType => (eggWhiteStack, true),
-                (_, "eggyolk") => (eggYolkStack, false),
-                _ => (null, false)
+                _ when IsEggYolk => world.GetItem(yolkLiquidCode),
+                true when IsCrackableEggType => world.GetItem(fullLiquidCode),
+                false when IsCrackableEggType => world.GetItem(whiteLiquidCode),
+                _ => null
             };
+
+            ItemStack liquid = liquidItem == null ? null : new(liquidItem, 99999);
 
             if (liquid == null || !CanSqueezeInto(world, block, blockSel)) return;
 
             if (world.Side == EnumAppSide.Client)
             {
-                byEntity.World.PlaySoundAt(new AssetLocation("aculinaryartillery:sounds/player/eggcrack"), byEntity, null, true, 16, 0.5f);
+                byEntity.World.PlaySoundAt(SqueezingSound, byEntity, null, true, 16, 0.5f);
 
                 // Primary Particles
                 var color = ColorUtil.ToRgba(255, 219, 206, 164);
@@ -203,13 +250,10 @@ namespace ACulinaryArtillery
 
             IPlayer byPlayer = null;
             if (byEntity is EntityPlayer) byPlayer = world.PlayerByUid(((EntityPlayer)byEntity).PlayerUID);
-            if (giveYolk)
+            ItemStack returnStack = new(world.GetItem(IsEggYolk ? eggYolkCode : eggShellCode));
+            if (byPlayer?.InventoryManager.TryGiveItemstack(returnStack) == false)
             {
-                stack = new ItemStack(world.GetItem(new AssetLocation(eggYolkOutput)));
-            }
-            if (byPlayer?.InventoryManager.TryGiveItemstack(stack) == false)
-            {
-                byEntity.World.SpawnItemEntity(stack, byEntity.SidedPos.XYZ);
+                byEntity.World.SpawnItemEntity(returnStack, byEntity.SidedPos.XYZ);
             }
         }
 
