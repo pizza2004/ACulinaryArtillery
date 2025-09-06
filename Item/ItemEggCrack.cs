@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Xml;
-
-using ACulinaryArtillery.Util;
-
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
-using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
 using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 
@@ -24,7 +17,6 @@ namespace ACulinaryArtillery
         WorldInteraction[] interactions;
 
         public SimpleParticleProperties particles;
-        Random rand = new Random();
 
         public override void OnLoaded(ICoreAPI api)
         {
@@ -61,14 +53,14 @@ namespace ACulinaryArtillery
                         ActionLangCode = "heldhelp-crack",
                         HotKeyCode = "sneak",
                         MouseButton = EnumMouseButton.Right,
-                        Itemstacks = stacks.ToArray(),                        
+                        Itemstacks = stacks.ToArray(),
                     },
                     new WorldInteraction()
                     {
                         ActionLangCode = "heldhelp-crack2",
-                        HotKeyCodes = new string[] {"sneak", "sprint" },
+                        HotKeyCodes = ["sneak", "sprint"],
                         MouseButton = EnumMouseButton.Right,
-                        Itemstacks = stacks.ToArray(),                        
+                        Itemstacks = stacks.ToArray(),
                     }
                 };
             });
@@ -83,12 +75,14 @@ namespace ACulinaryArtillery
         /// Utility method to check if an egg type is crackable.
         /// </summary>
         // TODO: move this to json attributes on the definitions????
-        public static bool IsCrackableEggType(string eggType) {
+        public static bool IsCrackableEggType(string eggType)
+        {
             return eggType == "egg" || eggType == "limeegg";
         }
 
         public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, bool firstEvent, ref EnumHandHandling handling)
         {
+            /*
             if (blockSel == null || !byEntity.Controls.Sneak) return;
 
             byEntity.AnimManager.StartAnimation("eggcrackstart");
@@ -99,16 +93,18 @@ namespace ACulinaryArtillery
 
             string eggType = slot.Itemstack.Collectible.FirstCodePart(0);      //grabs currently held item's code
             string eggVariant = slot.Itemstack.Collectible.FirstCodePart(1);   //grabs 1st variant in currently held item
-            bool canCrack = (liquidOptions, liquidOptions?.ExistingStack?.Collectible?.FirstCodePart(0), liquidOptions?.ExistingStack?.Collectible?.FirstCodePart(1)) switch {
-                (null, _, _)                                => false,                                                                               // cant add liquid
-                ( { ExistingStack: null}, _, _)             => true,                                                                                // empty target stack - can always squeeze (CanAddLiquid already checks for CanSqueeze)
-                (_, "eggyolkfullportion", var yolk)         => byEntity.Controls.Sprint && IsCrackableEggType(eggType) && yolk == eggVariant,       // liquid egg in container, need to be full cracking, have right egg & matching yolks
-                (_, "eggwhiteportion", _)                   => !byEntity.Controls.Sprint && IsCrackableEggType(eggType),                            // egg white in container, partial cracking and right egg
-                (_, "eggyolkportion", var yolk)             => eggType == "eggyolk" && yolk == eggVariant,                                          // yolks - egg variant must match
-                _                                           => false
+            bool canCrack = (liquidOptions, liquidOptions?.ExistingStack?.Collectible?.FirstCodePart(0), liquidOptions?.ExistingStack?.Collectible?.FirstCodePart(1)) switch
+            {
+                (null, _, _) => false,                                                                               // cant add liquid
+                ({ ExistingStack: null }, _, _) => true,                                                                                // empty target stack - can always squeeze (CanAddLiquid already checks for CanSqueeze)
+                (_, "eggyolkfullportion", var yolk) => byEntity.Controls.Sprint && IsCrackableEggType(eggType) && yolk == eggVariant,       // liquid egg in container, need to be full cracking, have right egg & matching yolks
+                (_, "eggwhiteportion", _) => !byEntity.Controls.Sprint && IsCrackableEggType(eggType),                            // egg white in container, partial cracking and right egg
+                (_, "eggyolkportion", var yolk) => eggType == "eggyolk" && yolk == eggVariant,                                          // yolks - egg variant must match
+                _ => false
             };
 
-            if (canCrack) {         //move to OnHeldInteractStep & play eggcrack.ogg
+            if (canCrack)
+            {         //move to OnHeldInteractStep & play eggcrack.ogg
                 handling = EnumHandHandling.PreventDefault;
             }
             else
@@ -119,6 +115,7 @@ namespace ACulinaryArtillery
                 base.OnHeldInteractStart(slot, byEntity, blockSel, entitySel, firstEvent, ref handling);
                 //slot.Itemstack.Collectible.GetBehavior<CollectibleBehaviorGroundStorable>().OnHeldInteractStart(slot, byEntity, blockSel, entitySel, firstEvent, ref handling, ref passThroughHandling);
             }
+            */
         }
 
         public override bool OnHeldInteractStep(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel)
@@ -147,8 +144,6 @@ namespace ACulinaryArtillery
                 {
                     byEntity.AnimManager.StopAnimation("eggcrackstart");
                 }
-
-                byEntity.Controls.UsingHeldItemTransformBefore = tf;
             }
 
             return secondsUsed < 0.5f;
@@ -162,6 +157,7 @@ namespace ACulinaryArtillery
 
         public override void OnHeldInteractStop(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel)
         {
+            /*
             if (blockSel == null) return;
             if (secondsUsed < 0.48f) return;
 
@@ -188,21 +184,24 @@ namespace ACulinaryArtillery
             ItemStack eggYolkFullStack = new ItemStack(world.GetItem(new AssetLocation(eggYolkFullLiquidAsset)), 99999);
             ItemStack stack = new ItemStack(world.GetItem(new AssetLocation(eggShellOutput)));
 
-            (ItemStack liquid, bool giveYolk) = (byEntity.Controls.Sprint, eggType) switch {
-                (true, var type) when IsCrackableEggType(type)  => (eggYolkFullStack, false),
+            (ItemStack liquid, bool giveYolk) = (byEntity.Controls.Sprint, eggType) switch
+            {
+                (true, var type) when IsCrackableEggType(type) => (eggYolkFullStack, false),
                 (false, var type) when IsCrackableEggType(type) => (eggWhiteStack, true),
-                (_, "eggyolk")                                  => (eggYolkStack, false),
-                _                                               => (null, false)
+                (_, "eggyolk") => (eggYolkStack, false),
+                _ => (null, false)
             };
 
-            if (liquid != null && !liquidOptions.Value.TryAddLiquid(liquid, ContainedEggLitres)) {
-                return;                
+            if (liquid != null && !liquidOptions.Value.TryAddLiquid(liquid, ContainedEggLitres))
+            {
+                return;
             }
 
 
-            if (api.World.Side == EnumAppSide.Client) {
+            if (api.World.Side == EnumAppSide.Client)
+            {
                 byEntity.World.PlaySoundAt(new AssetLocation("aculinaryartillery:sounds/player/eggcrack"), byEntity, null, true, 16, 0.5f);
-                 
+
                 // Primary Particles
                 var color = ColorUtil.ToRgba(255, 219, 206, 164);
 
@@ -214,10 +213,11 @@ namespace ACulinaryArtillery
                     liquidOptions.Value.TargetBlock
                         .GetCollisionBoxes(blockAccessor, null)
                         .OrderByDescending(cf => cf.MaxY)
-                        .FirstOrDefault() switch {
-                            null => new Vec3d(0.35, 0.1, 0.35),
-                            var b => b.TopFaceEllipsesLineIntersection(blockSel.HitPosition.ToVec3f())
-                        }, 
+                        .FirstOrDefault() switch
+                    {
+                        null => new Vec3d(0.35, 0.1, 0.35),
+                        var b => b.TopFaceEllipsesLineIntersection(blockSel.HitPosition.ToVec3f())
+                    },
                     new Vec3d(), //add position - see below
                     new Vec3f(0.2f, 0.5f, 0.2f), //min velocity
                     new Vec3f(), //add velocity - see below
@@ -239,22 +239,24 @@ namespace ACulinaryArtillery
             }
 
             slot.TakeOut(1);
-			slot.MarkDirty();
+            slot.MarkDirty();
 
             IPlayer byPlayer = null;
             if (byEntity is EntityPlayer) byPlayer = world.PlayerByUid(((EntityPlayer)byEntity).PlayerUID);
-            if (giveYolk) {
+            if (giveYolk)
+            {
                 stack = new ItemStack(world.GetItem(new AssetLocation(eggYolkOutput)));
             }
-            if (byPlayer?.InventoryManager.TryGiveItemstack(stack) == false) {
+            if (byPlayer?.InventoryManager.TryGiveItemstack(stack) == false)
+            {
                 byEntity.World.SpawnItemEntity(stack, byEntity.SidedPos.XYZ);
             }
+            */
         }
         public override WorldInteraction[] GetHeldInteractionHelp(ItemSlot inSlot)
         {
             return interactions.Append(base.GetHeldInteractionHelp(inSlot));
         }
     }
-
 
 }
