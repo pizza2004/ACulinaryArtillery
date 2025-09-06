@@ -1,5 +1,6 @@
 ﻿using ACulinaryArtillery.Util;
 using HarmonyLib;
+using System;
 using System.Reflection;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -39,13 +40,14 @@ namespace ACulinaryArtillery
 
             api.RegisterBlockEntityClass("ExpandedOven", typeof(BlockEntityExpandedOven));
             api.RegisterItemClass("SuperFood", typeof(ItemSuperFood));
-            api.RegisterItemClass("EggCrack", typeof(ItemEggCrack));
             api.RegisterItemClass("ExpandedRawFood", typeof(ItemExpandedRawFood));
             api.RegisterItemClass("ExpandedFood", typeof(ItemExpandedFood));
             api.RegisterItemClass("TransFix", typeof(ItemTransFix));
             api.RegisterItemClass("TransLiquid", typeof(ItemTransLiquid));
             api.RegisterItemClass("ExpandedLiquid", typeof(ItemExpandedLiquid));
             api.RegisterItemClass("ExpandedDough", typeof(ItemExpandedDough));
+
+            api.RegisterCollectibleBehaviorClass("EggCrack", typeof(CollectibleBehaviorEggCrack));
 
             //Check for Existing Config file, create one if none exists
             try
