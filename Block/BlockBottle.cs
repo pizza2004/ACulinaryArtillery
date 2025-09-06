@@ -253,15 +253,16 @@ namespace ACulinaryArtillery
 
         public string GetContainedInfo(ItemSlot inSlot)
         {
-            var litres = GetCurrentLitres(inSlot.Itemstack);
-            if (litres <= 0) return Lang.Get("{0} (Empty)", inSlot.Itemstack.GetName());
+            float litres = GetCurrentLitres(inSlot.Itemstack);
+            ItemStack contentStack = GetContent(inSlot.Itemstack);
 
-            var contentStack = GetContent(inSlot.Itemstack);
-            var incontainername = Lang.Get("incontainer-" + contentStack.Class.ToString().ToLowerInvariant() + "-" + contentStack.Collectible.Code.Path);
-            
-            if (litres == 1) return Lang.Get("{0} ({1} litre of {2})", inSlot.Itemstack.GetName(), litres, incontainername);
-            return Lang.Get("{0} ({1} litres of {2})", inSlot.Itemstack.GetName(), litres, incontainername);
+            if (litres <= 0) return Lang.GetWithFallback("contained-empty-container", "{0} (Empty)", inSlot.Itemstack.GetName());
+
+            string incontainername = Lang.Get(contentStack.Collectible.Code.Domain + ":incontainer-" + contentStack.Class.ToString().ToLowerInvariant() + "-" + contentStack.Collectible.Code.Path);
+
+            return Lang.Get("contained-liquidcontainer-compact", inSlot.Itemstack.GetName(), litres, incontainername, PerishableInfoCompactContainer(api, inSlot));
         }
+
 
         public string GetContainedName(ItemSlot inSlot, int quantity)
         {
