@@ -1,12 +1,10 @@
 ﻿using Cairo;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
-using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery.Util
@@ -62,7 +60,14 @@ namespace ACulinaryArtillery.Util
                 components.Add(new RichTextComponent(capi, Lang.Get("Kneading Ingredient for: ") + "\n", CairoFont.WhiteSmallText().WithWeight(FontWeight.Bold)));
                 components.Add(new ClearFloatTextComponent(capi, 2f));
 
-                foreach (var dstack in recipeOutputs) components.Add(new SlideshowItemstackTextComponent(capi, dstack, recipeOutputs, 40.0, EnumFloat.Inline, (ItemStack cs) => openDetailPageFor(GuiHandbookItemStackPage.PageCodeForStack(cs))));
+                while (recipeOutputs.Count > 0)
+                {
+                    ItemStack dstack = recipeOutputs[0];
+                    recipeOutputs.RemoveAt(0);
+                    if (dstack == null) continue;
+
+                    components.Add(new SlideshowItemstackTextComponent(capi, dstack, recipeOutputs, 40.0, EnumFloat.Inline, (ItemStack cs) => openDetailPageFor(GuiHandbookItemStackPage.PageCodeForStack(cs))));
+                }
 
                 components.Add(new ClearFloatTextComponent(capi, 3f));
             }
@@ -81,7 +86,14 @@ namespace ACulinaryArtillery.Util
                 components.Add(new RichTextComponent(capi, Lang.Get("Simmering Ingredient for: ") + "\n", CairoFont.WhiteSmallText().WithWeight(FontWeight.Bold)));
                 components.Add(new ClearFloatTextComponent(capi, 2f));
 
-                foreach (var dstack in recipeOutputs) components.Add(new SlideshowItemstackTextComponent(capi, dstack, recipeOutputs, 40.0, EnumFloat.Inline, (ItemStack cs) => openDetailPageFor(GuiHandbookItemStackPage.PageCodeForStack(cs))));
+                while (recipeOutputs.Count > 0)
+                {
+                    ItemStack dstack = recipeOutputs[0];
+                    recipeOutputs.RemoveAt(0);
+                    if (dstack == null) continue;
+
+                    components.Add(new SlideshowItemstackTextComponent(capi, dstack, recipeOutputs, 40.0, EnumFloat.Inline, (ItemStack cs) => openDetailPageFor(GuiHandbookItemStackPage.PageCodeForStack(cs))));
+                }
 
                 components.Add(new ClearFloatTextComponent(capi, 3f));
             }

@@ -37,10 +37,10 @@ namespace ACulinaryArtillery
 
         public override WorldInteraction[] GetPlacedBlockInteractionHelp(IWorldAccessor world, BlockSelection selection, IPlayer forPlayer)
         {
-            ItemStack[] liquidContainerStacks = [.. api.World.Collectibles.Where(obj => obj is BlockLiquidContainerTopOpened or ILiquidSource or ILiquidSink or BlockWateringCan)
-                                                                          .Select(obj => obj.GetHandBookStacks((ICoreClientAPI)api))
-                                                                          .SelectMany(stack => stack)
-                                                                          .Where(stack => stack != null)
+            ItemStack[] liquidContainerStacks = [.. api.World.Collectibles.Where(obj => obj is BlockLiquidContainerTopOpened or ILiquidSource or ILiquidSink)?
+                                                                          .Select(obj => obj?.GetHandBookStacks((ICoreClientAPI)api))?
+                                                                          .SelectMany(stacks => stacks ?? [])?
+                                                                          .Where(stack => stack != null) ?? []
                                                 ];
 
             return
