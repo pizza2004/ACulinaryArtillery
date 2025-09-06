@@ -16,8 +16,7 @@ namespace ACulinaryArtillery
         public float ContainedEggLitres { get; set; }
         public bool IsCrackableEggType { get; set; }
         public bool IsEggYolk { get; set; }
-        protected AssetLocation? whiteLiquidCode { get; set; }
-        protected AssetLocation? yolkLiquidCode { get; set; }
+        protected AssetLocation? partialLiquidCode { get; set; }
         protected AssetLocation? fullLiquidCode { get; set; }
         protected AssetLocation? eggYolkCode { get; set; }
         protected AssetLocation? eggShellCode { get; set; }
@@ -47,25 +46,19 @@ namespace ACulinaryArtillery
             }
 
             string eggVariant = collObj.Variant["source"] ?? collObj.FirstCodePart(1);
-            code = properties["whiteLiquidCode"].AsString("aculinaryartillery:eggwhiteportion");
+            code = properties["partialLiquidCode"].AsString(IsEggYolk ? "aculinaryartillery:eggyolkportion-" + eggVariant : "aculinaryartillery:eggwhiteportion");
             if (code != null)
             {
-                liquidItemCode = whiteLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
+                liquidItemCode = partialLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
             }
 
-            code = properties["yolkLiquidCode"].AsString("aculinaryartillery:eggyolkportion-" + eggVariant);
-            if (code != null)
-            {
-                yolkLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
-            }
-
-            code = properties["fullLiquidCode"].AsString("aculinaryartillery:eggyolkfullportion-" + eggVariant);
+            code = properties["fullLiquidCode"].AsString(IsEggYolk ? null : "aculinaryartillery:eggyolkfullportion-" + eggVariant);
             if (code != null)
             {
                 fullLiquidCode = AssetLocation.Create(code, collObj.Code.Domain);
             }
 
-            code = properties["eggYolkCode"].AsString("aculinaryartillery:eggyolk-" + eggVariant);
+            code = properties["eggYolkCode"].AsString(IsEggYolk ? null : "aculinaryartillery:eggyolk-" + eggVariant);
             if (code != null)
             {
                 eggYolkCode = AssetLocation.Create(code, collObj.Code.Domain);
@@ -81,17 +74,13 @@ namespace ACulinaryArtillery
         WorldInteraction[] interactions;
         public override void OnLoaded(ICoreAPI api)
         {
-            Item item = api.World.GetItem(yolkLiquidCode);
-            float yolkItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
-
-            item = api.World.GetItem(fullLiquidCode);
+            Item item = fullLiquidCode == null ? null : api.World.GetItem(fullLiquidCode);
             float fullItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
 
             ReturnStacks = [
-                new () {Type = EnumItemClass.Item, Code = yolkLiquidCode, StackSize = (int)(ContainedEggLitres * yolkItemsPerLitre)},
-                new () {Type = EnumItemClass.Item, Code = fullLiquidCode, StackSize = (int)(ContainedEggLitres * fullItemsPerLitre)},
-                new () {Type = EnumItemClass.Item, Code = eggYolkCode},
-                new () {Type = EnumItemClass.Item, Code = eggShellCode}
+                fullLiquidCode != null ? new () {Type = EnumItemClass.Item, Code = fullLiquidCode, StackSize = (int)(ContainedEggLitres * fullItemsPerLitre)} : null,
+                eggYolkCode != null ? new () {Type = EnumItemClass.Item, Code = eggYolkCode} : null,
+                eggShellCode != null ? new () {Type = EnumItemClass.Item, Code = eggShellCode} : null
             ];
 
             base.OnLoaded(api);
@@ -172,12 +161,12 @@ namespace ACulinaryArtillery
             IBlockAccessor blockAccessor = world.BlockAccessor;
             Block block = blockAccessor.GetBlock(blockSel.Position);
 
-            Item liquidItem = byEntity.Controls.Sprint switch
+            (Item liquidItem, bool giveYolk) = byEntity.Controls.Sprint switch
             {
-                _ when IsEggYolk => world.GetItem(yolkLiquidCode),
-                true when IsCrackableEggType => world.GetItem(fullLiquidCode),
-                false when IsCrackableEggType => world.GetItem(whiteLiquidCode),
-                _ => null
+                _ when IsEggYolk => (world.GetItem(partialLiquidCode), false),
+                true when IsCrackableEggType => (world.GetItem(fullLiquidCode ?? partialLiquidCode), false),
+                false when IsCrackableEggType => (world.GetItem(partialLiquidCode), true),
+                _ => (null, false)
             };
 
             ItemStack liquid = liquidItem == null ? null : new(liquidItem, 99999);
@@ -223,26 +212,23 @@ namespace ACulinaryArtillery
                 particles.AddPos.Set(new Vec3d(0, 0, 0)); //add position
                 world.SpawnParticles(particles);
             }
-            else
-            {
-                if (block is BlockLiquidContainerTopOpened blockCnt)
-                {
-                    if (blockCnt.TryPutLiquid(blockSel.Position, liquid, ContainedEggLitres) == 0) return;
-                }
-                else if (block is BlockBarrel blockBarrel && world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityBarrel beb)
-                {
-                    if (beb.Sealed) return;
-                    if (blockBarrel.TryPutLiquid(blockSel.Position, liquid, ContainedEggLitres) == 0) return;
-                }
-                else if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityGroundStorage beg &&
-                        beg.GetSlotAt(blockSel) is ItemSlot squeezeIntoSlot &&
-                        squeezeIntoSlot.Itemstack?.Block is BlockLiquidContainerTopOpened begCnt &&
-                        CanSqueezeInto(world, begCnt, null))
-                {
-                    if (begCnt.TryPutLiquid(squeezeIntoSlot.Itemstack, liquid, ContainedEggLitres) == 0) return;
-                    beg.MarkDirty(true);
-                }
 
+            if (block is BlockLiquidContainerTopOpened blockCnt)
+            {
+                if (blockCnt.TryPutLiquid(blockSel.Position, liquid, ContainedEggLitres) == 0) return;
+            }
+            else if (block is BlockBarrel blockBarrel && world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityBarrel beb)
+            {
+                if (beb.Sealed) return;
+                if (blockBarrel.TryPutLiquid(blockSel.Position, liquid, ContainedEggLitres) == 0) return;
+            }
+            else if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityGroundStorage beg &&
+                    beg.GetSlotAt(blockSel) is ItemSlot squeezeIntoSlot &&
+                    squeezeIntoSlot.Itemstack?.Block is BlockLiquidContainerTopOpened begCnt &&
+                    CanSqueezeInto(world, begCnt, null))
+            {
+                if (begCnt.TryPutLiquid(squeezeIntoSlot.Itemstack, liquid, ContainedEggLitres) == 0) return;
+                beg.MarkDirty(true);
             }
 
             slot.TakeOut(1);
@@ -250,7 +236,7 @@ namespace ACulinaryArtillery
 
             IPlayer byPlayer = null;
             if (byEntity is EntityPlayer) byPlayer = world.PlayerByUid(((EntityPlayer)byEntity).PlayerUID);
-            ItemStack returnStack = new(world.GetItem(IsEggYolk ? eggYolkCode : eggShellCode));
+            ItemStack returnStack = new(world.GetItem(!giveYolk ? eggShellCode : (eggYolkCode ?? eggShellCode)));
             if (byPlayer?.InventoryManager.TryGiveItemstack(returnStack) == false)
             {
                 byEntity.World.SpawnItemEntity(returnStack, byEntity.SidedPos.XYZ);
