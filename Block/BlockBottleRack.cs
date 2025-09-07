@@ -4,13 +4,18 @@ using Vintagestory.API.MathTools;
 
 namespace ACulinaryArtillery
 {
-    public class BlockBottleRack : Block//, IContainedMeshSource, IContainedCustomName
+    public class BlockBottleRack : Block
     {
         public MeshData GenMesh(ICoreClientAPI capi, string shapePath, ITexPositionSource texture, ITesselatorAPI tesselator = null)
         {
             var shape = capi.Assets.TryGet(shapePath + ".json").ToObject<Shape>();
             tesselator.TesselateShape(shapePath, shape, out var mesh, texture, new Vec3f(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
             return mesh;
+        }
+
+        public override bool DoParticalSelection(IWorldAccessor world, BlockPos pos)
+        {
+            return true;
         }
 
         public override void OnBlockBroken(IWorldAccessor world, BlockPos pos, IPlayer byPlayer, float dropQuantityMultiplier = 1)
