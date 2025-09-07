@@ -41,8 +41,6 @@ namespace ACulinaryArtillery
             api.RegisterBlockEntityClass("ExpandedOven", typeof(BlockEntityExpandedOven));
             api.RegisterItemClass("ExpandedRawFood", typeof(ItemExpandedRawFood));
             api.RegisterItemClass("ExpandedFood", typeof(ItemExpandedFood));
-            api.RegisterItemClass("TransFix", typeof(ItemTransFix));
-            api.RegisterItemClass("TransLiquid", typeof(ItemTransLiquid));
             api.RegisterItemClass("ExpandedLiquid", typeof(ItemExpandedLiquid));
             api.RegisterItemClass("ExpandedDough", typeof(ItemExpandedDough));
 
