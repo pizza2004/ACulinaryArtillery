@@ -61,8 +61,7 @@ namespace ACulinaryArtillery
 
         internal MeshData GenMesh()
         {
-            if (ownBlock == null || ownBlock.Code.Path.Contains("clay"))
-            { return null; }
+            if (ownBlock == null || ownBlock.Code.Path.Contains("clay")) return null;
 
             var mesh = ownBlock.GenMesh(Api as ICoreClientAPI, GetContent(), Pos);
             return mesh;
@@ -81,8 +80,7 @@ namespace ACulinaryArtillery
 
         public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
         {
-            if (currentMesh == null || ownBlock.Code.Path.Contains("clay"))
-            { return false; }
+            if (currentMesh == null || ownBlock.Code.Path.Contains("clay")) return false;
             mesher.AddMeshData(currentMesh.Clone().Rotate(new Vec3f(0.5f, 0.5f, 0.5f), 0, 0, 0));
             return true;
         }
