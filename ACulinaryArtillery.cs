@@ -21,24 +21,20 @@ namespace ACulinaryArtillery
             //base.Start(api);
 
             api.RegisterBlockClass("BlockMeatHooks", typeof(BlockMeatHooks));
-            api.RegisterBlockEntityClass("MeatHooks", typeof(BlockEntityMeatHooks));
-
             api.RegisterBlockClass("BlockBottleRack", typeof(BlockBottleRack));
-            api.RegisterBlockEntityClass("BottleRack", typeof(BlockEntityBottleRack));
-
             api.RegisterBlockClass("BlockMixingBowl", typeof(BlockMixingBowl));
-            api.RegisterBlockEntityClass("MixingBowl", typeof(BlockEntityMixingBowl));
-
             api.RegisterBlockClass("BlockBottle", typeof(BlockBottle));
-            api.RegisterBlockEntityClass("Bottle", typeof(BlockEntityBottle));
-
             api.RegisterBlockClass("BlockSpile", typeof(BlockSpile));
-            api.RegisterBlockEntityClass("Spile", typeof(BlockEntitySpile));
-
             api.RegisterBlockClass("BlockSaucepan", typeof(BlockSaucepan));
-            api.RegisterBlockEntityClass("Saucepan", typeof(BlockEntitySaucepan));
 
+            api.RegisterBlockEntityClass("MeatHooks", typeof(BlockEntityMeatHooks));
+            api.RegisterBlockEntityClass("BottleRack", typeof(BlockEntityBottleRack));
+            api.RegisterBlockEntityClass("MixingBowl", typeof(BlockEntityMixingBowl));
+            api.RegisterBlockEntityClass("Bottle", typeof(BlockEntityBottle));
+            api.RegisterBlockEntityClass("Spile", typeof(BlockEntitySpile));
+            api.RegisterBlockEntityClass("Saucepan", typeof(BlockEntitySaucepan));
             api.RegisterBlockEntityClass("ExpandedOven", typeof(BlockEntityExpandedOven));
+
             api.RegisterItemClass("ExpandedRawFood", typeof(ItemExpandedRawFood));
             api.RegisterItemClass("ExpandedFood", typeof(ItemExpandedFood));
             api.RegisterItemClass("ExpandedLiquid", typeof(ItemExpandedLiquid));
