@@ -145,7 +145,7 @@ namespace ACulinaryArtillery
 
             foreach (var slot in cookingSlotsProvider.Slots) slot.Itemstack = null;
 
-            if (product.Collectible.Class == "ItemLiquidPortion" || product.Collectible is ItemExpandedLiquid or ItemTransLiquid)
+            if (GetContainableProps(product)?.Containable == true)
             {
                 outputSlot.Itemstack = inputSlot.TakeOut(1);
                 (outputSlot.Itemstack.Collectible as BlockLiquidContainerBase).TryPutLiquid(outputSlot.Itemstack, product, product.StackSize);
