@@ -100,7 +100,7 @@ namespace ACulinaryArtillery
         public override void DoSmelt(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot)
         {
             List<ItemStack> contents = [.. cookingSlotsProvider.Slots.Where(slot => !slot.Empty).Select(slot => slot.Itemstack)]; //The inputSlots may not all be filled. This is more convenient.
-            ItemStack product = null;
+            ItemStack? product = null;
 
             if (contents.Count == 1)    //if there is only one ingredient, we have already checked it is adequate for smelting, so we immediately create the product using CombustibleProps
             {
@@ -187,7 +187,7 @@ namespace ACulinaryArtillery
 
         public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
         {
-            BlockEntitySaucepan sp = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntitySaucepan;
+            BlockEntitySaucepan? sp = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntitySaucepan;
             BlockPos pos = blockSel.Position;
 
             if (byPlayer.WorldData.EntityControls.Sneak && byPlayer.WorldData.EntityControls.Sprint)

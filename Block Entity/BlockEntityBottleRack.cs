@@ -93,7 +93,7 @@ namespace ACulinaryArtillery
 
         protected virtual MeshData GenMesh(ItemStack stack)
         {
-            MeshData mesh;
+            MeshData? mesh;
 
             if (stack.Collectible is IContainedMeshSource dynBlock)
             {
@@ -102,7 +102,6 @@ namespace ACulinaryArtillery
             }
             else
             {
-                var capi = Api as ICoreClientAPI;
                 if (stack.Class == EnumItemClass.Block) mesh = capi.TesselatorManager.GetDefaultBlockMesh(stack.Block).Clone();
                 else
                 {
@@ -115,9 +114,8 @@ namespace ACulinaryArtillery
                 }
             }
 
-            if (stack.Collectible.Attributes?[AttributeTransformCode].Exists == true)
+            if (stack.Collectible.Attributes?[AttributeTransformCode]?.AsObject<ModelTransform>() is ModelTransform transform)
             {
-                var transform = stack.Collectible.Attributes?[AttributeTransformCode].AsObject<ModelTransform>();
                 transform.EnsureDefaultValues();
                 mesh.ModelTransform(transform);
 
@@ -173,40 +171,15 @@ namespace ACulinaryArtillery
 
         public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
         {
-            var block = Api.World.BlockAccessor.GetBlock(Pos) as BlockBottleRack;
-            var capi = Api as ICoreClientAPI;
-
-            MeshData mesh = capi.TesselatorManager.GetDefaultBlockMesh(block); //add bottle rack
-            mesher.AddMeshData(mesh);
-
-            var shapeBase = "aculinaryartillery:shapes/";
+            if (Api.World.BlockAccessor.GetBlock(Pos) is not BlockBottleRack block) return false;
+            mesher.AddMeshData(capi.TesselatorManager.GetDefaultBlockMesh(block)); // Add bottle rack
+            
+            // Add bottles to rack
             for (var i = 0; i <= 15; i++)
             {
-                if (!inventory[i].Empty)
-                {
-                    var bottleBlock = inventory[i].Itemstack.Block;
-                    var texture = capi.Tesselator.GetTexSource(bottleBlock);
+                if (inventory[i].Itemstack?.Block is not BlockBottle bottleBlock) continue;
 
-                    if (bottleBlock.Code.Path.Contains("-clay-"))
-                    {
-                        mesh = block.GenMesh(capi, shapeBase + "block/bottle/bottle", texture, tesselator);
-                    }
-                    else
-                    {
-                        var content = (inventory[i].Itemstack.Collectible as BlockBottle).GetContent(inventory[i].Itemstack);
-                        if (content != null) //glass bottle with contents
-                        {
-                            mesh = (inventory[i].Itemstack.Collectible as BlockBottle).GenMeshSideways(capi, content, Pos);
-                        }
-                        else //glass bottle
-                        {
-                            mesh = block.GenMesh(capi, shapeBase + "block/bottle/glassbottleempty", texture, tesselator);
-                        }
-                    }
-
-                    mesh = TransformBottleMesh(mesh, i, block.FirstCodePart(), block.LastCodePart());
-                    mesher.AddMeshData(mesh);
-                }
+                mesher.AddMeshData(TransformBottleMesh(bottleBlock.GenMeshSideways(capi, bottleBlock.GetContent(inventory[i].Itemstack), Pos), i, block.FirstCodePart(), block.LastCodePart()));
             }
             return true;
         }

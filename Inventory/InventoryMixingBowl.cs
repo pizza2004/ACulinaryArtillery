@@ -16,7 +16,7 @@ namespace ACulinaryArtillery
         public ItemSlot[] Slots => slots;
         BlockEntityMixingBowl machine;
 
-        public InventoryMixingBowl(string inventoryID, ICoreAPI api, BlockEntityMixingBowl bowl) : base(inventoryID, api)
+        public InventoryMixingBowl(string? inventoryID, ICoreAPI? api, BlockEntityMixingBowl bowl) : base(inventoryID, api)
         {
             // slot 0 = pot
             // slot 1 = output

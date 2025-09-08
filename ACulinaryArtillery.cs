@@ -1,25 +1,19 @@
 ﻿using ACulinaryArtillery.Util;
 using HarmonyLib;
-using System;
 using System.Reflection;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.MathTools;
-using Vintagestory.API.Server;
 using Vintagestory.Client.NoObf;
-using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery
 {
     public class ACulinaryArtillery : ModSystem
     {
-        private static Harmony harmony;
-        public static ILogger logger;
+        private static Harmony? harmony;
+        public static ILogger? logger;
 
         public override void Start(ICoreAPI api)
         {
-            //base.Start(api);
-
             api.RegisterBlockClass("BlockMeatHooks", typeof(BlockMeatHooks));
             api.RegisterBlockClass("BlockBottleRack", typeof(BlockBottleRack));
             api.RegisterBlockClass("BlockMixingBowl", typeof(BlockMixingBowl));
@@ -90,8 +84,8 @@ namespace ACulinaryArtillery
 
         public override void Dispose()
         {
-            logger.Debug("Unpatching harmony methods");
-            harmony.UnpatchAll(harmony.Id);
+            logger?.Debug("Unpatching harmony methods");
+            harmony?.UnpatchAll(harmony.Id);
             harmony = null;
         }
 

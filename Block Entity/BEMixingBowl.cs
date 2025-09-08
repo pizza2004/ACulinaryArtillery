@@ -45,7 +45,7 @@ namespace ACulinaryArtillery
             FlourDustParticles.OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.QUADRATIC, -16f);
         }
 
-        ILoadedSound ambientSound;
+        ILoadedSound? ambientSound;
 
         internal InventoryMixingBowl inventory;
 
@@ -56,13 +56,13 @@ namespace ACulinaryArtillery
 
         //For automation
         public bool invLocked;
-        public ItemStack[] lockedInv = new ItemStack[6];
+        public ItemStack?[] lockedInv = new ItemStack[6];
 
 
-        GuiDialogBlockEntityMixingBowl clientDialog;
-        MixingBowlTopRenderer renderer;
+        GuiDialogBlockEntityMixingBowl? clientDialog;
+        MixingBowlTopRenderer? renderer;
         bool automated;
-        BEBehaviorMPConsumer mpc;
+        BEBehaviorMPConsumer? mpc;
 
 
         // Server side only
@@ -82,29 +82,29 @@ namespace ACulinaryArtillery
             {
                 if (quantityPlayersMixing > 0) return 1f;
 
-                if (automated && mpc.Network != null) return mpc.TrueSpeed;
+                if (automated && mpc?.Network != null) return mpc.TrueSpeed;
 
                 return 0;
             }
         }
 
 
-        MeshData mixingBowlBaseMesh
+        MeshData? mixingBowlBaseMesh
         {
             get
             {
-                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "basemesh-" + Material, out object value);
-                return (MeshData)value;
+                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "basemesh-" + Material, out object? value);
+                return (MeshData?)value;
             }
             set => Api.ObjectCache[Block.FirstCodePart() + "basemesh-" + Material] = value;
         }
 
-        MeshData mixingBowlTopMesh
+        MeshData? mixingBowlTopMesh
         {
             get
             {
-                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "topmesh-" + Material, out object value);
-                return (MeshData)value;
+                Api.ObjectCache.TryGetValue(Block.FirstCodePart() + "topmesh-" + Material, out object? value);
+                return (MeshData?)value;
             }
             set => Api.ObjectCache[Block.FirstCodePart() + "topmesh-" + Material] = value;
         }
@@ -113,10 +113,7 @@ namespace ACulinaryArtillery
 
         #region Config
 
-        public virtual float maxMixingTime()
-        {
-            return 4;
-        }
+        public virtual float MaxMixingTime => 4;
 
         public override string InventoryClassName => Block.FirstCodePart();
         public virtual string DialogTitle => Lang.Get("aculinaryartillery:Mixing Bowl");
@@ -145,9 +142,9 @@ namespace ACulinaryArtillery
                 CapacityLitres = Block.Attributes["capacityLitres"].AsInt(CapacityLitres);
             }
 
-            if (ambientSound == null && api.Side == EnumAppSide.Client)
+            if (api is ICoreClientAPI capi)
             {
-                ambientSound = ((IClientWorldAccessor)api.World).LoadSound(new SoundParams()
+                ambientSound ??= capi.World.LoadSound(new SoundParams()
                 {
                     Location = new AssetLocation("aculinaryartillery:sounds/block/mixing.ogg"),
                     ShouldLoop = true,
@@ -155,28 +152,18 @@ namespace ACulinaryArtillery
                     DisposeOnFinish = false,
                     Volume = 0.75f
                 });
-            }
 
-            if (api.Side == EnumAppSide.Client)
-            {
-                renderer = new MixingBowlTopRenderer(api as ICoreClientAPI, Pos, GenMesh("top"));
-                renderer.mechPowerPart = mpc;
+                renderer = new (capi, Pos, GenMesh("top") ?? new()) { mechPowerPart = mpc };
                 if (automated)
                 {
                     renderer.ShouldRender = true;
                     renderer.ShouldRotateAutomated = true;
                 }
 
-                (api as ICoreClientAPI).Event.RegisterRenderer(renderer, EnumRenderStage.Opaque, Block.FirstCodePart());
+                capi.Event.RegisterRenderer(renderer, EnumRenderStage.Opaque, Block.FirstCodePart());
 
-                if (mixingBowlBaseMesh == null)
-                {
-                    mixingBowlBaseMesh = GenMesh("base");
-                }
-                if (mixingBowlTopMesh == null)
-                {
-                    mixingBowlTopMesh = GenMesh("top");
-                }
+                mixingBowlBaseMesh ??= GenMesh("base");
+                mixingBowlTopMesh ??= GenMesh("top");
             }
         }
 
@@ -222,7 +209,7 @@ namespace ACulinaryArtillery
 
             if (Api.Side == EnumAppSide.Client)
             {
-                if (ambientSound != null && automated)
+                if (ambientSound != null && mpc != null && automated)
                 {
                     ambientSound.SetPitch((0.5f + mpc.TrueSpeed) * 0.9f);
                     ambientSound.SetVolume(Math.Min(1f, mpc.TrueSpeed * 3f));
@@ -236,7 +223,7 @@ namespace ACulinaryArtillery
             {
                 inputMixTime += dt * mixSpeed;
 
-                if (inputMixTime >= maxMixingTime())
+                if (inputMixTime >= MaxMixingTime)
                 {
                     mixInput();
                     inputMixTime = 0;
@@ -248,8 +235,8 @@ namespace ACulinaryArtillery
 
         private void mixInput()
         {
-            CookingRecipe recipe = GetMatchingMixingRecipe(Api.World, IngredStacks);
-            DoughRecipe drecipe = GetMatchingDoughRecipe(Api.World, IngredSlots);
+            CookingRecipe? recipe = GetMatchingMixingRecipe(Api.World, IngredStacks);
+            DoughRecipe? drecipe = GetMatchingDoughRecipe(Api.World, IngredSlots);
             ItemStack mixedStack;
             int servings = 0;
             ItemStack[] stacks = IngredStacks;
@@ -261,8 +248,8 @@ namespace ACulinaryArtillery
 
                 for (int i = 0; i < stacks.Length; i++)
                 {
-                    CookingRecipeIngredient ingred = recipe.GetIngrendientFor(stacks[i]);
-                    ItemStack cookedStack = ingred.GetMatchingStack(stacks[i])?.CookedStack?.ResolvedItemstack.Clone();
+                    CookingRecipeIngredient? ingred = recipe.GetIngrendientFor(stacks[i]);
+                    ItemStack? cookedStack = ingred?.GetMatchingStack(stacks[i])?.CookedStack?.ResolvedItemstack.Clone();
                     if (cookedStack != null)
                     {
                         stacks[i] = cookedStack;
@@ -270,10 +257,10 @@ namespace ACulinaryArtillery
                 }
 
                 // Carry over and set perishable properties
-                TransitionableProperties cookedPerishProps = recipe.PerishableProps.Clone();
-                cookedPerishProps.TransitionedStack.Resolve(Api.World, "cooking container perished stack");
+                TransitionableProperties? cookedPerishProps = recipe.PerishableProps?.Clone();
+                cookedPerishProps?.TransitionedStack.Resolve(Api.World, "cooking container perished stack");
 
-                CollectibleObject.CarryOverFreshness(Api, IngredSlots, stacks, cookedPerishProps);
+                if (cookedPerishProps != null) CollectibleObject.CarryOverFreshness(Api, IngredSlots, stacks, cookedPerishProps);
 
                 for (int i = 0; i < stacks.Length; i++)
                 {
@@ -356,7 +343,7 @@ namespace ACulinaryArtillery
         {
             if (Api?.World == null) return;
 
-            bool nowMixing = quantityPlayersMixing > 0 || (automated && mpc.TrueSpeed > 0f);
+            bool nowMixing = quantityPlayersMixing > 0 || (automated && mpc?.TrueSpeed > 0f);
 
             if (nowMixing != beforeMixing)
             {
@@ -375,14 +362,14 @@ namespace ACulinaryArtillery
 
         private void OnSlotModifid(int slotid)
         {
-            if (Api is ICoreClientAPI) clientDialog.Update(inputMixTime, maxMixingTime(), GetOutputText());
+            clientDialog?.Update(inputMixTime, MaxMixingTime, GetOutputText());
 
             if (slotid == 0 || slotid > 1)
             {
                 inputMixTime = 0.0f; //reset the progress to 0 if any of the input is changed.
                 MarkDirty();
 
-                if (clientDialog != null && clientDialog.IsOpened()) clientDialog.SingleComposer.ReCompose();
+                if (clientDialog?.IsOpened() == true) clientDialog.SingleComposer.ReCompose();
             }
         }
 
@@ -393,7 +380,7 @@ namespace ACulinaryArtillery
             renderer.ShouldRender = quantityPlayersMixing > 0 || automated;
         }
 
-        internal MeshData GenMesh(string type = "base")
+        internal MeshData? GenMesh(string type = "base")
         {
             Block block = Api.World.BlockAccessor.GetBlock(Pos);
             if (block.BlockId == 0) return null;
@@ -446,10 +433,7 @@ namespace ACulinaryArtillery
                 lockedInv[4] = locker.GetItemstack("4");
                 lockedInv[5] = locker.GetItemstack("5");
 
-                for (int i = 0; i < 6; i++)
-                {
-                    if (lockedInv[i] != null) lockedInv[i].ResolveBlockOrItem(worldForResolving);
-                }
+                for (int i = 0; i < 6; i++) lockedInv[i]?.ResolveBlockOrItem(worldForResolving);
             }
 
             Inventory.FromTreeAttributes(tree.GetTreeAttribute("inventory"));
@@ -461,7 +445,7 @@ namespace ACulinaryArtillery
 
             if (worldForResolving.Side == EnumAppSide.Client)
             {
-                List<int> clientIds = [.. (tree["clientIsMixing"] as IntArrayAttribute).value];
+                List<int> clientIds = [.. (tree["clientIsMixing"] as IntArrayAttribute)?.value ?? []];
 
                 quantityPlayersMixing = clientIds.Count;
 
@@ -469,7 +453,7 @@ namespace ACulinaryArtillery
 
                 foreach (var uid in playeruids)
                 {
-                    IPlayer plr = Api.World.PlayerByUid(uid);
+                    IPlayer plr = worldForResolving.PlayerByUid(uid);
 
                     if (!clientIds.Contains(plr.ClientId)) playersMixing.Remove(uid);
                     else clientIds.Remove(plr.ClientId);
@@ -477,7 +461,7 @@ namespace ACulinaryArtillery
 
                 for (int i = 0; i < clientIds.Count; i++)
                 {
-                    IPlayer plr = worldForResolving.AllPlayers.FirstOrDefault(p => p.ClientId == clientIds[i]);
+                    IPlayer? plr = worldForResolving.AllPlayers.FirstOrDefault(p => p.ClientId == clientIds[i]);
                     if (plr != null) playersMixing.Add(plr.PlayerUID, worldForResolving.ElapsedMilliseconds);
                 }
 
@@ -485,7 +469,7 @@ namespace ACulinaryArtillery
             }
 
 
-            if (Api?.Side == EnumAppSide.Client) clientDialog?.Update(inputMixTime, maxMixingTime(), GetOutputText());
+            if (Api?.Side == EnumAppSide.Client) clientDialog?.Update(inputMixTime, MaxMixingTime, GetOutputText());
         }
 
         public override void ToTreeAttributes(ITreeAttribute tree)
@@ -557,12 +541,12 @@ namespace ACulinaryArtillery
 
         public override void OnReceivedServerPacket(int packetid, byte[] data)
         {
-            if (packetid == (int)EnumBlockStovePacket.OpenGUI && (clientDialog == null || !clientDialog.IsOpened()))
+            if (packetid == (int)EnumBlockStovePacket.OpenGUI && Api is ICoreClientAPI capi && clientDialog?.IsOpened() != true)
             {
-                clientDialog = new GuiDialogBlockEntityMixingBowl(DialogTitle, Inventory, Pos, Api as ICoreClientAPI);
+                clientDialog = new GuiDialogBlockEntityMixingBowl(DialogTitle, Inventory, Pos, capi);
                 clientDialog.TryOpen();
                 clientDialog.OnClosed += () => clientDialog = null;
-                clientDialog.Update(inputMixTime, maxMixingTime(), GetOutputText());
+                clientDialog.Update(inputMixTime, MaxMixingTime, GetOutputText());
             }
 
             if (packetid == (int)EnumBlockEntityPacketId.Close)
@@ -575,7 +559,7 @@ namespace ACulinaryArtillery
         #endregion
 
         #region Helper getters
-        public BlockCookingContainer Pot => inventory[0].Itemstack?.Collectible as BlockCookingContainer;
+        public BlockCookingContainer? Pot => inventory[0].Itemstack?.Collectible as BlockCookingContainer;
         public ItemSlot OutputSlot => inventory[1];
 
         public ItemStack InputStack
@@ -626,7 +610,7 @@ namespace ACulinaryArtillery
 
         public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
         {
-            if (Block == null) return false;
+            if (Block == null || mixingBowlTopMesh == null || renderer == null) return false;
 
             mesher.AddMeshData(mixingBowlBaseMesh);
             if (quantityPlayersMixing == 0 && !automated)
@@ -641,40 +625,18 @@ namespace ACulinaryArtillery
             return true;
         }
 
-        public CookingRecipe GetMatchingMixingRecipe(IWorldAccessor world, ItemStack[] stacks)
+        public CookingRecipe? GetMatchingMixingRecipe(IWorldAccessor world, ItemStack[] stacks)
         {
             if (Pot == null) return null;
-            
-            if (Api.GetMixingRecipes() is not List<CookingRecipe> recipes) return null;
 
-            for (int j = 0; j < recipes.Count; j++)
-            {
-                if (recipes[j].Matches(stacks))
-                {
-                    if (recipes[j].GetQuantityServings(stacks) > (Pot?.MaxServingSize ?? 6)) continue;
-
-                    return recipes[j];
-                }
-            }
-
-            return null;
+            return Api.GetMixingRecipes()?.FirstOrDefault(rec => rec.Matches(stacks) && rec.GetQuantityServings(stacks) <= Pot.MaxServingSize);
         }
 
-        public DoughRecipe GetMatchingDoughRecipe(IWorldAccessor world, ItemSlot[] slots)
+        public DoughRecipe? GetMatchingDoughRecipe(IWorldAccessor world, ItemSlot[] slots)
         {
             if (Pot != null) return null;
 
-            if (Api.GetKneadingRecipes() is not List<DoughRecipe> recipes) return null;
-
-            for (int j = 0; j < recipes.Count; j++)
-            {
-                if (recipes[j].Matches(Api.World, slots))
-                {
-                    return recipes[j];
-                }
-            }
-
-            return null;
+            return Api.GetKneadingRecipes()?.FirstOrDefault(rec => rec.Matches(world, slots));
         }
 
         public override void OnBlockUnloaded()
@@ -686,8 +648,8 @@ namespace ACulinaryArtillery
 
         public string GetOutputText()
         {
-            CookingRecipe recipe = GetMatchingMixingRecipe(Api.World, IngredStacks);
-            DoughRecipe drecipe = GetMatchingDoughRecipe(Api.World, IngredSlots);
+            CookingRecipe? recipe = GetMatchingMixingRecipe(Api.World, IngredStacks);
+            DoughRecipe? drecipe = GetMatchingDoughRecipe(Api.World, IngredSlots);
             string locked = invLocked ? Lang.Get("aculinaryartillery:(Locked) ") : "";
 
             if (recipe != null)
@@ -701,7 +663,7 @@ namespace ACulinaryArtillery
             return locked;
         }
 
-        public void ToggleLock(IPlayer player = null)
+        public void ToggleLock(IPlayer? player = null)
         {
             Api.World.PlaySoundAt(new AssetLocation("aculinaryartillery:sounds/lock.ogg"), Pos.X, Pos.Y, Pos.Z, player);
             if (invLocked)

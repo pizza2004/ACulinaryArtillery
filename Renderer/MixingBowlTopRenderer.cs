@@ -10,7 +10,7 @@ namespace ACulinaryArtillery
         internal bool ShouldRotateManual;
         internal bool ShouldRotateAutomated;
 
-        public BEBehaviorMPConsumer mechPowerPart;
+        public BEBehaviorMPConsumer? mechPowerPart;
 
         private ICoreClientAPI api;
         private BlockPos pos;

@@ -12,8 +12,8 @@ namespace ACulinaryArtillery
         private readonly InventoryGeneric inv;
         public override string InventoryClassName => "bottle";
 
-        private BlockBottle ownBlock;
-        private MeshData currentMesh;
+        private BlockBottle? ownBlock;
+        private MeshData? currentMesh;
 
         public BlockEntityBottle()
         {
@@ -32,7 +32,7 @@ namespace ACulinaryArtillery
             }
         }
 
-        public override void OnBlockPlaced(ItemStack byItemStack = null)
+        public override void OnBlockPlaced(ItemStack? byItemStack = null)
         {
             base.OnBlockPlaced(byItemStack);
             if (Api.Side == EnumAppSide.Client)
@@ -59,7 +59,7 @@ namespace ACulinaryArtillery
             }
         }
 
-        internal MeshData GenMesh()
+        internal MeshData? GenMesh()
         {
             if (ownBlock == null || ownBlock.Code.Path.Contains("clay")) return null;
 
@@ -80,7 +80,7 @@ namespace ACulinaryArtillery
 
         public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
         {
-            if (currentMesh == null || ownBlock.Code.Path.Contains("clay")) return false;
+            if (currentMesh == null || ownBlock?.Code.Path.Contains("clay") == true) return false;
             mesher.AddMeshData(currentMesh.Clone().Rotate(new Vec3f(0.5f, 0.5f, 0.5f), 0, 0, 0));
             return true;
         }

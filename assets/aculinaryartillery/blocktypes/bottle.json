@@ -41,7 +41,6 @@
     "liquidContainerProps": {
       "capacityLitres": 1,
       "transferSizeLitres": 0.1,
-      "emptyShapeLoc": "aculinaryartillery:shapes/block/bottle/glassbottleempty",
       "opaqueContentShapeLoc": "aculinaryartillery:shapes/block/bottle/glassbottle",
       "liquidContentShapeLoc": "aculinaryartillery:shapes/block/bottle/glassbottle",
       "liquidMaxYTranslate": 0.05

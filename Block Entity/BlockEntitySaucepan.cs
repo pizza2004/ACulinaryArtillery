@@ -10,10 +10,10 @@ namespace ACulinaryArtillery
 {
     public class BlockEntitySaucepan : BlockEntityBucket
     {
-        MeshData currentRightMesh;
+        MeshData? currentRightMesh;
         public bool isSealed;
 
-        BlockSaucepan ownBlock => Block as BlockSaucepan;
+        BlockSaucepan? ownBlock => Block as BlockSaucepan;
 
         public BlockEntitySaucepan()
         {
@@ -31,7 +31,7 @@ namespace ACulinaryArtillery
             }
         }
 
-        public override void OnBlockPlaced(ItemStack byItemStack = null)
+        public override void OnBlockPlaced(ItemStack? byItemStack = null)
         {
             base.OnBlockPlaced(byItemStack);
 
@@ -65,18 +65,18 @@ namespace ACulinaryArtillery
             tree.SetBool("isSealed", isSealed);
         }
 
-        public SimmerRecipe GetMatchingSimmerRecipe(IWorldAccessor world, ItemSlot[] slots)
+        public SimmerRecipe? GetMatchingSimmerRecipe(IWorldAccessor world, ItemSlot[] slots)
         {
             List<SimmerRecipe> recipes = Api.GetSimmerRecipes();
 
             return recipes.FirstOrDefault(r => r.Matches(world, slots));
         }
 
-        internal MeshData GenRightMesh()
+        internal MeshData? GenRightMesh()
         {
-            if (ownBlock?.Code.Path.Contains("clay") != false) return null;
+            if (Api is not ICoreClientAPI capi || ownBlock?.Code.Path.Contains("clay") != false) return null;
 
-            MeshData mesh = ownBlock.GenRightMesh(Api as ICoreClientAPI, GetContent(), Pos, isSealed);
+            MeshData mesh = ownBlock.GenRightMesh(capi, GetContent(), Pos, isSealed);
 
             if (mesh.CustomInts != null)
             {
