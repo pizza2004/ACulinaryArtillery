@@ -14,7 +14,7 @@
         
         }
 
-        public static ACulinaryArtilleryConfig Current { get; set; }
+        public static ACulinaryArtilleryConfig Current { get; set; } = GetDefault();
 
         public static ACulinaryArtilleryConfig GetDefault()
         {

@@ -7,7 +7,7 @@
   "description": "An armory of tools for food-based mods and modpack makers",
   "modID": "aculinaryartillery",
   "authors": ["l33tmaan", "jakecool19", "SpearAndFang", "Mister_Andy_Dandy", "Vinter Nacht", "Philippe", "Pursec", "pizza2004"],
-  "contributors": ["Dmitry221060"],
+  "contributors": ["Dmitry221060", "jayu"],
 
   "dependencies": { "game": "1.21.0" }
 }

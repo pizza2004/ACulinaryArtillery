@@ -1,5 +1,4 @@
-﻿using ACulinaryArtillery.Block_Entity;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -8,6 +7,21 @@ using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery
 {
+    public class BlockEntitySaucepanContainer : InWorldContainer
+    {
+        private BlockEntitySaucepan BESaucepan;
+
+        public BlockEntitySaucepanContainer(BlockEntitySaucepan blockEntitySaucepan, InventorySupplierDelegate inventorySupplier, string treeAttrKey) : base(inventorySupplier, treeAttrKey)
+        {
+            BESaucepan = blockEntitySaucepan;
+        }
+
+        public override float GetPerishRate()
+        {
+            return base.GetPerishRate() * (BESaucepan.isSealed ? BESaucepan.Block.Attributes["lidPerishRate"].AsFloat(0.5f) : 1f);
+        }
+    }
+
     public class BlockEntitySaucepan : BlockEntityBucket
     {
         MeshData? currentRightMesh;
@@ -17,7 +31,7 @@ namespace ACulinaryArtillery
 
         public BlockEntitySaucepan()
         {
-            container = new BESaucepanContainer(this, () => Inventory, "inventory");
+            container = new BlockEntitySaucepanContainer(this, () => Inventory, "inventory");
         }
 
         public override void Initialize(ICoreAPI api)

@@ -24,7 +24,6 @@ namespace ACulinaryArtillery
             api.RegisterBlockEntityClass("MeatHooks", typeof(BlockEntityMeatHooks));
             api.RegisterBlockEntityClass("BottleRack", typeof(BlockEntityBottleRack));
             api.RegisterBlockEntityClass("MixingBowl", typeof(BlockEntityMixingBowl));
-            api.RegisterBlockEntityClass("Bottle", typeof(BlockEntityBottle));
             api.RegisterBlockEntityClass("Spile", typeof(BlockEntitySpile));
             api.RegisterBlockEntityClass("Saucepan", typeof(BlockEntitySaucepan));
             api.RegisterBlockEntityClass("ExpandedOven", typeof(BlockEntityExpandedOven));
@@ -45,15 +44,10 @@ namespace ACulinaryArtillery
                     api.Logger.Notification("Mod Config successfully loaded.");
                     ACulinaryArtilleryConfig.Current = Config;
                 }
-                else
-                {
-                    api.Logger.Notification("No Mod Config specified. Falling back to default settings");
-                    ACulinaryArtilleryConfig.Current = ACulinaryArtilleryConfig.GetDefault();
-                }
+                else api.Logger.Notification("No Mod Config specified. Falling back to default settings");
             }
             catch
             {
-                ACulinaryArtilleryConfig.Current = ACulinaryArtilleryConfig.GetDefault();
                 api.Logger.Error("Failed to load custom mod configuration. Falling back to default settings!");
             }
             finally

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -22,14 +21,14 @@ namespace ACulinaryArtillery
         protected virtual AssetLocation LiquidContentShapeLoc => props.LiquidContentShapeLoc;
         public override float TransferSizeLitres => props.TransferSizeLitres;
         public override float CapacityLitres => props.CapacityLitres;
-        public override bool CanDrinkFrom => true;
-        public override bool IsTopOpened => true;
-        public override bool AllowHeldLiquidTransfer => true;
-        protected virtual float LiquidMaxYTranslate => props.LiquidMaxYTranslate;
-        protected virtual float LiquidYTranslatePerLitre => LiquidMaxYTranslate / CapacityLitres;
-
-        public AssetLocation liquidFillSoundLocation => new("game:sounds/effect/water-fill");
-        public AssetLocation liquidDrinkSoundLocation => new("game:sounds/player/drink1");
+        public override bool CanDrinkFrom => Attributes["canDrinkFrom"].AsBool(true);
+        public override bool IsTopOpened => Attributes["isTopOpened"].AsBool(true);
+        public override bool AllowHeldLiquidTransfer => Attributes["allowHeldLiquidTransfer"].AsBool(true);
+        protected virtual bool IsClear => Attributes["isClear"].AsBool();
+        public virtual float MinFillY => Attributes["minFill"].AsFloat();
+        public virtual float MaxFillY => Attributes["maxFill"].AsFloat();
+        public virtual float MinFillZ => Attributes["minFillSideways"].AsFloat();
+        public virtual float MaxFillZ => Attributes["maxFillSideways"].AsFloat();
 
         public override byte[]? GetLightHsv(IBlockAccessor blockAccessor, BlockPos pos, ItemStack? stack = null)
         {
@@ -40,31 +39,11 @@ namespace ACulinaryArtillery
         {
             base.OnLoaded(api);
             props = Attributes?["liquidContainerProps"]?.AsObject(props, Code.Domain) ?? props;
-
-            if (api is not ICoreClientAPI capi) return;
-
-            interactions = ObjectCacheUtil.GetOrCreate<WorldInteraction[]>(capi, "bottle", () => {
-                ItemStack[] liquidContainerStacks = [.. capi.World.Collectibles.Where(obj => obj is ILiquidSource or ILiquidSink)?
-                                                                               .SelectMany(obj => obj.GetHandBookStacks(capi))?
-                                                                               .Where(stack => stack != null) ?? []];
-
-                foreach (var stack in liquidContainerStacks) stack.StackSize = 1;
-
-                return [ new() {
-                    ActionLangCode = "blockhelp-behavior-rightclickpickup",
-                    MouseButton = EnumMouseButton.Right,
-                    RequireFreeHand = true
-                }, new() {
-                    ActionLangCode = "blockhelp-bucket-rightclick",
-                    MouseButton = EnumMouseButton.Right,
-                    Itemstacks = liquidContainerStacks
-                }];
-            });
         }
 
         public override void OnBeforeRender(ICoreClientAPI capi, ItemStack itemstack, EnumItemRenderTarget target, ref ItemRenderInfo renderinfo)
         {
-            if (Code.Path.Contains("clay")) return;
+            if (!IsClear && !IsTopOpened) return;
 
             Dictionary<int, MultiTextureMeshRef> meshrefs;
             if (capi.ObjectCache.TryGetValue(MeshRefsCacheKey, out var obj))
@@ -96,21 +75,25 @@ namespace ACulinaryArtillery
             }
         }
 
-        public MeshData? GenMesh(ICoreClientAPI? capi, ItemStack? contentStack, BlockPos? forBlockPos = null)
+        public MeshData? GenMesh(ICoreClientAPI? capi, ItemStack? contentStack, bool isSideways = false, BlockPos? forBlockPos = null)
         {
-            if (capi == null) return null;
-            MeshData? mesh = null;
+            if (capi?.Assets.TryGet(EmptyShapeLoc.CopyWithPathPrefixAndAppendixOnce("shapes/", ".json")) is not IAsset asset) return new MeshData();
 
-            if (contentStack != null && (!Code.Path.Contains("clay")))
+            capi.Tesselator.TesselateShape(this, asset.ToObject<Shape>(), out var mesh, new(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
+            if (contentStack != null && (IsClear || IsTopOpened))
             {
                 if (GetContainableProps(contentStack) is WaterTightContainableProps props)
                 {
-                    var level = contentStack.StackSize / props.ItemsPerLitre;
-                    AssetLocation loc = (props.IsOpaque ? ContentShapeLoc : LiquidContentShapeLoc).Clone().WithPathPrefixOnce("shapes/").WithoutPathAppendix(".json");
-                    loc.WithPathAppendix((level <= 0.25f && level > 0) ? "-1" : (level <= 0.5f ? "-2" : (level < 1 ? "-3" : ""))).WithPathAppendixOnce(".json");
+                    float fullness = contentStack.StackSize / props.ItemsPerLitre;
+                    Shape? shape = capi.Assets.TryGet((props.IsOpaque ? ContentShapeLoc : LiquidContentShapeLoc).CopyWithPathPrefixAndAppendixOnce("shapes/", ".json"))?.ToObject<Shape>();
+                    if (shape == null) return mesh;
+                    shape = SliceFlattenedShape(shape.FlattenHierarchy(), fullness, isSideways);
 
-                    capi.Tesselator.TesselateShape("bottle", capi.Assets.TryGet(loc).ToObject<Shape>(), out mesh, new BottleTextureSource(capi, contentStack, props.Texture, this), new Vec3f(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
+                    var bottleMesh = mesh;
+                    capi.Tesselator.TesselateShape("bottle", shape, out mesh, new BottleTextureSource(capi, contentStack, props.Texture, this), new Vec3f(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
                     for (int i = 0; i < mesh.Flags.Length; i++) mesh.Flags[i] = mesh.Flags[i] & ~(1 << 12); // Remove water waving flag
+
+                    mesh.AddMeshData(bottleMesh);
 
                     // Water flags
                     if (forBlockPos != null)
@@ -120,53 +103,77 @@ namespace ACulinaryArtillery
                         mesh.CustomFloats = new CustomMeshDataPartFloat(mesh.FlagsCount * 2) { Count = mesh.FlagsCount * 2 };
                     }
                 }
-                else ACulinaryArtillery.logger?.Error($"Bottle with Item {contentStack.Item.Code} does not have waterTightProps and will not render or work correctly. This is usually caused by removing mods. If not, check with the items author.");
+                else ACulinaryArtillery.logger?.Error($"Bottle with Item {contentStack.Item.Code} does not have waterTightProps and will not render any liquid inside it.");
             }
-            else capi.Tesselator.TesselateShape(this, capi.Assets.TryGet(EmptyShapeLoc.CopyWithPathPrefixAndAppendixOnce("shapes/", ".json")).ToObject<Shape>(), out mesh, new Vec3f(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
-
             return mesh;
+        }
+
+        // Works only if the shape hierarchy has been flattened, it must not have any element with children - Thanks for the code, Jayu!
+        public Shape SliceFlattenedShape(Shape fullShape, float fullness, bool isSideways)
+        {
+            int axis = isSideways ? 2 : 1;
+            var min = isSideways ? MinFillZ : MinFillY;
+            var max = isSideways ? MaxFillZ : MaxFillY;
+
+            var newMax = min + (max - min) * fullness;
+            var newElements = new List<ShapeElement>();
+
+            double elementMin, elementMax, adjustedFrom, adjustedTo;
+            double originalHeight, newHeight, heightProportion;
+            double vMin, vMax, vRange;
+            foreach (var element in fullShape.Elements)
+            {
+                elementMin = Math.Min(element.From[axis], element.To[axis]);
+                elementMax = Math.Max(element.From[axis], element.To[axis]);
+
+                if (elementMax < min || elementMin > newMax) continue;
+
+                var newElement = element.Clone();
+                adjustedFrom = Math.Max(element.From[axis], 0);
+                adjustedTo = Math.Min(element.To[axis], newMax);
+                if (!(adjustedFrom <= adjustedTo)) continue;
+                newElement.From[axis] = adjustedFrom;
+                newElement.To[axis] = adjustedTo;
+
+                // Calculate the proportion of the adjustment
+                originalHeight = elementMax - elementMin;
+                newHeight = adjustedTo - adjustedFrom;
+                heightProportion = originalHeight > 0 ? newHeight / originalHeight : 0;
+
+                for (var i = 0; i < 4; i++)
+                {
+                    var face = newElement.FacesResolved[i];
+                    if (face != null)
+                    {
+                        vMin = face.Uv[1];
+                        vMax = face.Uv[3];
+                        vRange = vMax - vMin;
+
+                        // Adjust the V values based on the height proportion
+                        face.Uv[1] = (float)(vMin + vRange * (1 - heightProportion));
+                        face.Uv[3] = (float)vMax;
+                    }
+                }
+                if (isSideways)
+                {
+                    newElement.RotationOrigin = [8.0, 0.2, 8.0];
+                    newElement.RotationY = 180;
+                }
+                newElements.Add(newElement);
+            }
+
+            var partialShape = fullShape.Clone();
+            partialShape.Elements = [.. newElements];
+            return partialShape;
         }
 
         public MeshData? GenMesh(ItemStack itemstack, ITextureAtlasAPI targetAtlas, BlockPos? forBlockPos = null)
         {
-            return GenMesh(api as ICoreClientAPI, GetContent(itemstack), forBlockPos);
-        }
-
-        public MeshData GenMeshSideways(ICoreClientAPI capi, ItemStack? contentStack, BlockPos? forBlockPos = null)
-        {
-            if (capi.Assets.TryGet(EmptyShapeLoc.CopyWithPathPrefixAndAppendixOnce("shapes/", ".json")) is not IAsset asset) return new MeshData();
-
-            capi.Tesselator.TesselateShape(this, asset.ToObject<Shape>(), out var mesh, new(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
-            if (contentStack != null && (!Code.Path.Contains("clay")))
+            if (forBlockPos != null && GetBlockEntity<BlockEntityBottleRack>(forBlockPos) != null)
             {
-                if (GetContainableProps(contentStack) is WaterTightContainableProps props)
-                {
-                    // unlike genmesh, were only rendering the contents at this point
-                    var level = contentStack.StackSize / props.ItemsPerLitre;
-                    AssetLocation loc = "aculinaryartillery:block/bottle/contents-";
-                    loc.WithPathAppendix((level <= 0.25f && level > 0) ? "side-1" : (level <= 0.5f ? "side-2" : (level < 1 ? "side-3" : "full")));
-
-                    asset = capi.Assets.TryGet(loc.WithPathAppendixOnce(".json").WithPathPrefixOnce("shapes/"));
-                    if (asset == null) return mesh;
-
-                    capi.Tesselator.TesselateShape(GetType().Name, asset.ToObject<Shape>(), out var contentMesh, new BottleTextureSource(capi, contentStack, props.Texture, this), new(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
-                    for (int i = 0; i < contentMesh.Flags.Length; i++) contentMesh.Flags[i] = contentMesh.Flags[i] & ~(1 << 12); // Remove water waving flag
-
-                    // Water flags
-                    if (forBlockPos != null)
-                    {
-                        contentMesh.CustomInts = new CustomMeshDataPartInt(contentMesh.FlagsCount) { Count = contentMesh.FlagsCount };
-                        contentMesh.CustomInts.Values.Fill(0x4000000); // light foam only
-                        contentMesh.CustomFloats = new CustomMeshDataPartFloat(contentMesh.FlagsCount * 2) { Count = contentMesh.FlagsCount * 2 };
-
-                        mesh.CustomInts = new CustomMeshDataPartInt(mesh.FlagsCount) { Count = mesh.FlagsCount };
-                        mesh.CustomInts.Values.Fill(0x4000000); // light foam only
-                        mesh.CustomFloats = new CustomMeshDataPartFloat(mesh.FlagsCount * 2) { Count = mesh.FlagsCount * 2 };
-                    }
-                    mesh.AddMeshData(contentMesh);
-                }
+                return GenMesh(api as ICoreClientAPI, GetContent(itemstack), true, forBlockPos);
             }
-            return mesh;
+            return GenMesh(api as ICoreClientAPI, GetContent(itemstack), false, forBlockPos);
         }
 
         public string GetMeshCacheKey(ItemStack itemstack)
@@ -204,7 +211,7 @@ namespace ACulinaryArtillery
 
             if (secondsUsed > 0.5f && (int)(30 * secondsUsed) % 7 == 1)
             {
-                byEntity.World.SpawnCubeParticles(pos, content, 0.3f, 4, 0.5f, (byEntity as EntityPlayer)?.Player);
+                byEntity.World.SpawnCubeParticles(pos, GetContent(slot.Itemstack), 0.3f, 4, 0.5f, (byEntity as EntityPlayer)?.Player);
             }
 
             if (byEntity.World is IClientWorldAccessor)
@@ -262,11 +269,6 @@ namespace ACulinaryArtillery
         }
 
         public override float GetContainingTransitionModifierContained(IWorldAccessor world, ItemSlot inSlot, EnumTransitionType transType)
-        {
-            return Attributes[transType == EnumTransitionType.Perish ? "perishRate" : "cureRate"].AsFloat(1);
-        }
-
-        public override float GetContainingTransitionModifierPlaced(IWorldAccessor world, BlockPos pos, EnumTransitionType transType)
         {
             return Attributes[transType == EnumTransitionType.Perish ? "perishRate" : "cureRate"].AsFloat(1);
         }
@@ -337,72 +339,6 @@ namespace ACulinaryArtillery
             }
         }
 
-        public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
-        {
-            var hotbarSlot = byPlayer.InventoryManager.ActiveHotbarSlot;
-
-            if (!hotbarSlot.Empty && hotbarSlot.Itemstack.Collectible.Attributes?.IsTrue("handleLiquidContainerInteract") == true)
-            {
-                var handling = EnumHandHandling.NotHandled;
-                hotbarSlot.Itemstack.Collectible.OnHeldInteractStart(hotbarSlot, byPlayer.Entity, blockSel, null, true, ref handling);
-
-                if (handling is EnumHandHandling.PreventDefault or EnumHandHandling.PreventDefaultAction) return true;
-            }
-
-            if (hotbarSlot.Empty || hotbarSlot.Itemstack.Collectible is not ILiquidInterface) return base.OnBlockInteractStart(world, byPlayer, blockSel);
-
-            var obj = hotbarSlot.Itemstack.Collectible;
-            var singleTake = byPlayer.WorldData.EntityControls.Sneak;
-            var singlePut = byPlayer.WorldData.EntityControls.Sprint;
-
-            if (obj is ILiquidSource source && !singleTake)
-            {
-                var moved = TryPutLiquid(blockSel.Position, source.GetContent(hotbarSlot.Itemstack), singlePut ? 1 : 9999);
-
-                if (moved > 0)
-                {
-                    source.TryTakeContent(hotbarSlot.Itemstack, moved);
-                    (byPlayer as IClientPlayer)?.TriggerFpAnimation(EnumHandInteract.HeldItemInteract);
-                    return true;
-                }
-            }
-
-            if (obj is ILiquidSink sink && !singlePut)
-            {
-                var owncontentStack = GetContent(blockSel.Position);
-                int moved;
-
-                if (hotbarSlot.Itemstack.StackSize == 1)
-                {
-                    moved = sink.TryPutLiquid(hotbarSlot.Itemstack, owncontentStack, singleTake ? 1 : 9999);
-                }
-                else
-                {
-                    var containerStack = hotbarSlot.Itemstack.Clone();
-                    containerStack.StackSize = 1;
-                    moved = sink.TryPutLiquid(containerStack, owncontentStack, singleTake ? 1 : 9999);
-
-                    if (moved > 0)
-                    {
-                        hotbarSlot.TakeOut(1);
-                        if (!byPlayer.InventoryManager.TryGiveItemstack(containerStack, true))
-                        {
-                            api.World.SpawnItemEntity(containerStack, byPlayer.Entity.SidedPos.XYZ);
-                        }
-                    }
-                }
-
-                if (moved > 0)
-                {
-                    TryTakeContent(blockSel.Position, moved);
-                    (byPlayer as IClientPlayer)?.TriggerFpAnimation(EnumHandInteract.HeldItemInteract);
-                    return true;
-                }
-            }
-            return true;
-        }
-
-
         public override void OnGroundIdle(EntityItem entityItem)
         {
             base.OnGroundIdle(entityItem);
@@ -415,11 +351,6 @@ namespace ACulinaryArtillery
                 entityItem.World.SpawnItemEntity(contents, entityItem.ServerPos.XYZ);
                 SetContent(entityItem.Itemstack, null);
             }
-        }
-
-        public override WorldInteraction[] GetPlacedBlockInteractionHelp(IWorldAccessor world, BlockSelection selection, IPlayer forPlayer)
-        {
-            return interactions;
         }
 
         public override WorldInteraction[] GetHeldInteractionHelp(ItemSlot inSlot)
@@ -485,25 +416,19 @@ namespace ACulinaryArtillery
                 if (contentTextPos == null)
                 {
                     int textureSubId;
-                    textureSubId = ObjectCacheUtil.GetOrCreate(capi, "contenttexture-" + contentTexture?.ToString() ?? "unkowncontent", () =>
+                    textureSubId = ObjectCacheUtil.GetOrCreate(capi, "contenttexture-" + contentTexture?.ToString() ?? "unknowncontent", () =>
                     {
                         var id = 0;
-                        var bmp = capi.Assets.TryGet(contentTexture?.Base.Clone().WithPathPrefixOnce("textures/").WithPathAppendixOnce(".png") ?? new AssetLocation("aculinaryartillery:textures/block/unknown.png"))?.ToBitmap(capi);
+                        var bmp = capi.Assets.TryGet(contentTexture?.Base.CopyWithPathPrefixAndAppendixOnce("textures/", ".png") ?? new AssetLocation("aculinaryartillery:textures/block/unknown.png"))?.ToBitmap(capi);
 
                         if (bmp != null)
                         {
-                            //if (contentTexture.Alpha != 255)
-                            //{ bmp.MulAlpha(contentTexture.Alpha); }
-
-                            // for now, a try catch will have to suffice - barf
-                            try
+                            if (contentTexture != null && contentTexture.Alpha != 255)
                             {
-                                capi.BlockTextureAtlas.InsertTexture(bmp, out id, out var texPos);
+                                bmp.MulAlpha(contentTexture.Alpha);
                             }
-                            catch
-                            {
 
-                            }
+                            capi.BlockTextureAtlas.InsertTexture(bmp, out id, out var texPos);
                             bmp.Dispose();
                         }
                         return id;

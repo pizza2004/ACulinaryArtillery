@@ -4,21 +4,23 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
-using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery
 {
-    public class BlockEntityBottleRack : BlockEntityDisplayCase, ITexPositionSource
+    public class BlockEntityBottleRack : BlockEntityDisplay, ITexPositionSource
     {
-        private readonly int maxSlots = 16;
-        public override string InventoryClassName => "bottlerack";
+        InventoryGeneric inventory;
         public override InventoryBase Inventory => inventory;
+        public override string InventoryClassName => "bottlerack";
+        public override string AttributeTransformCode => "onBottlerackTransform";
+        private readonly int slotCount = 16;
+        public override int DisplayedItems => slotCount;
 
         public BlockEntityBottleRack()
         {
-            inventory = new InventoryGeneric(maxSlots, null, null);
-            var meshes = new MeshData[maxSlots];
+            inventory = new InventoryGeneric(slotCount, null, null);
+            var meshes = new MeshData[slotCount];
         }
 
         internal bool OnInteract(IPlayer byPlayer, BlockSelection blockSel)
@@ -28,15 +30,10 @@ namespace ACulinaryArtillery
             else
             {
                 var colObj = playerSlot.Itemstack.Collectible;
-                if (colObj.Attributes != null)
+                if (colObj.Attributes?["bottlerackable"].AsBool() == true && TryPut(playerSlot, blockSel))
                 {
-                    if (colObj.Code.Path.StartsWith("bottle-") && TryPut(playerSlot, blockSel))
-                    {
-                        Api.World.PlaySoundAt(Block?.Sounds?.Place ?? new AssetLocation("game:sounds/player/build"), byPlayer.Entity, byPlayer, true, 16);
-                        return true;
-                    }
-
-                    return false;
+                    Api.World.PlaySoundAt(Block?.Sounds?.Place ?? new AssetLocation("game:sounds/player/build"), byPlayer.Entity, byPlayer, true, 16);
+                    return true;
                 }
             }
             return false;
@@ -91,97 +88,38 @@ namespace ACulinaryArtillery
             return false;
         }
 
-        protected virtual MeshData GenMesh(ItemStack stack)
+        protected override float[][] genTransformationMatrices()
         {
-            MeshData? mesh;
+            float[][] tfMatrices = new float[slotCount][];
+            bool corner = Block.FirstCodePart() == "bottlerackcorner";
 
-            if (stack.Collectible is IContainedMeshSource dynBlock)
+            for (int slot = 0; slot < slotCount; slot++)
             {
-                mesh = dynBlock.GenMesh(stack, capi.BlockTextureAtlas, Pos);
-                mesh.Rotate(new Vec3f(0.5f, 0.5f, 0.5f), 0, Block.Shape.rotateY * GameMath.DEG2RAD, 0);
-            }
-            else
-            {
-                if (stack.Class == EnumItemClass.Block) mesh = capi.TesselatorManager.GetDefaultBlockMesh(stack.Block).Clone();
-                else
+                double col = slot % 4;
+                double y = Math.Floor(slot / 4f) / 4f + 0.125f;
+
+                (double x, double z, float rot) = (corner, col) switch
                 {
-                    nowTesselatingObj = stack.Collectible;
-                    nowTesselatingShape = null;
-                    if (stack.Item.Shape != null) nowTesselatingShape = capi.TesselatorManager.GetCachedShape(stack.Item.Shape.Base);
-                    capi.Tesselator.TesselateItem(stack.Item, out mesh, this);
+                    (true, 1) => (col / 4 - 0.38, -0.22f, Block.Shape.rotateY - 45),
+                    (true, 2) => (col / 4 - 0.37, -0.22f, Block.Shape.rotateY - 45),
+                    (true, 3) => (col / 4 - 0.37375, -0.42f, Block.Shape.rotateY - 90),
+                    (_, _) => (col / 4 - 0.37625, -0.42f, Block.Shape.rotateY)
+                };
+                
 
-                    mesh.RenderPassesAndExtraBits.Fill((short)EnumChunkRenderPass.BlendNoCull);
-                }
+                tfMatrices[slot] =
+                    new Matrixf()
+                    .Translate(0.5f, 0, 0.5f)
+                    .RotateYDeg(rot)
+                    .Translate(x, y, z)
+                    .RotateXDeg(90)
+                    .Scale(0.99f, 0.99f, 0.99f)
+                    .Translate(-0.5f, 0, -0.5f)
+                    .Values
+                ;
             }
 
-            if (stack.Collectible.Attributes?[AttributeTransformCode]?.AsObject<ModelTransform>() is ModelTransform transform)
-            {
-                transform.EnsureDefaultValues();
-                mesh.ModelTransform(transform);
-
-                transform.Rotation.X = 0;
-                transform.Rotation.Y = Block.Shape.rotateY;
-                transform.Rotation.Z = 0;
-                mesh.ModelTransform(transform);
-            }
-
-            if (stack.Class == EnumItemClass.Item && (stack.Item.Shape?.VoxelizeTexture != false))
-            {
-                mesh.Rotate(new Vec3f(0.5f, 0.5f, 0.5f), GameMath.PIHALF, 0, 0);
-                mesh.Scale(new Vec3f(0.5f, 0.5f, 0.5f), 0.33f, 0.5f, 0.33f);
-                mesh.Translate(0, -7.5f / 16f, 0f);
-            }
-
-            return mesh;
-        }
-
-        public MeshData TransformBottleMesh(MeshData mesh, int slot, string type, string direction)
-        {
-            var rot = 0f; //north in radians
-            switch (direction)
-            {
-                case "east": rot = 1.57f; break;
-                case "south": rot = 3.14f; break;
-                case "west": rot = 4.71f; break;
-                default: break;
-            }
-
-            double col = slot % 4;
-            var y = (float)(Math.Floor(slot / 4f) / 4f) - 0.3f;
-
-            mesh.Translate((float)col / 4 - 0.38f, y - 0.5f, -0.42f);
-
-            if (type == "bottlerackcorner" && (col == 1 || col == 2)) mesh.Translate(0f, 0.2f, 0.2f);
-
-            mesh.Rotate(new Vec3f(0.5f, y, 0.5f), 1.57f, 0f, rot);
-            mesh.Scale(new Vec3f(0.5f, 0.5f, 0.5f), 0.99f, 0.99f, 0.99f);
-
-            if (type == "bottlerackcorner")
-            {
-                if (col == 1 || col == 2)
-                {
-                    mesh.Translate(0f, 0.2f, 0f);
-                    mesh.Rotate(new Vec3f(0.5f, y, 0.5f), 0f, -0.785f, 0f);
-                }
-                else if (col == 3) mesh.Rotate(new Vec3f(0.5f, y, 0.5f), 0f, -1.57f, 0f); //far right column
-            }
-
-            return mesh;
-        }
-
-        public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
-        {
-            if (Api.World.BlockAccessor.GetBlock(Pos) is not BlockBottleRack block) return false;
-            mesher.AddMeshData(capi.TesselatorManager.GetDefaultBlockMesh(block)); // Add bottle rack
-            
-            // Add bottles to rack
-            for (var i = 0; i <= 15; i++)
-            {
-                if (inventory[i].Itemstack?.Block is not BlockBottle bottleBlock) continue;
-
-                mesher.AddMeshData(TransformBottleMesh(bottleBlock.GenMeshSideways(capi, bottleBlock.GetContent(inventory[i].Itemstack), Pos), i, block.FirstCodePart(), block.LastCodePart()));
-            }
-            return true;
+            return tfMatrices;
         }
 
         public override void GetBlockInfo(IPlayer forPlayer, StringBuilder sb)

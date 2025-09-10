@@ -21,7 +21,7 @@ namespace ACulinaryArtillery
         protected AssetLocation? eggYolkCode { get; set; }
         protected AssetLocation? eggShellCode { get; set; }
 
-        public SimpleParticleProperties particles;
+        public SimpleParticleProperties? particles;
         Random rand = new Random();
 
         public CollectibleBehaviorEggCrack(CollectibleObject collObj) : base(collObj)
@@ -71,17 +71,19 @@ namespace ACulinaryArtillery
             }
         }
 
-        WorldInteraction[] interactions;
+        WorldInteraction[]? interactions;
         public override void OnLoaded(ICoreAPI api)
         {
-            Item item = fullLiquidCode == null ? null : api.World.GetItem(fullLiquidCode);
-            float fullItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
+            Item? item = fullLiquidCode == null ? null : api.World.GetItem(fullLiquidCode);
+            float fullItemsPerLitre = item?.Attributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps?>(null, item.Code.Domain)?.ItemsPerLitre ?? 100;
 
+#nullable disable // For now we're putting this here because ReturnStacks is JsonItemStack[]? rather than JsonItemStack?[]? like it probably should be
             ReturnStacks = [
                 fullLiquidCode != null ? new () {Type = EnumItemClass.Item, Code = fullLiquidCode, StackSize = (int)(ContainedEggLitres * fullItemsPerLitre)} : null,
                 eggYolkCode != null ? new () {Type = EnumItemClass.Item, Code = eggYolkCode} : null,
                 eggShellCode != null ? new () {Type = EnumItemClass.Item, Code = eggShellCode} : null
             ];
+#nullable restore
 
             base.OnLoaded(api);
 
@@ -161,7 +163,7 @@ namespace ACulinaryArtillery
             IBlockAccessor blockAccessor = world.BlockAccessor;
             Block block = blockAccessor.GetBlock(blockSel.Position);
 
-            (Item liquidItem, bool giveYolk) = byEntity.Controls.Sprint switch
+            (Item? liquidItem, bool giveYolk) = byEntity.Controls.Sprint switch
             {
                 _ when IsEggYolk => (world.GetItem(partialLiquidCode), false),
                 true when IsCrackableEggType => (world.GetItem(fullLiquidCode ?? partialLiquidCode), false),
@@ -169,13 +171,13 @@ namespace ACulinaryArtillery
                 _ => (null, false)
             };
 
-            ItemStack liquid = liquidItem == null ? null : new(liquidItem, 99999);
+            ItemStack? liquid = liquidItem == null ? null : new(liquidItem, 99999);
 
             if (liquid == null || !CanSqueezeInto(world, block, blockSel)) return;
 
             if (world.Side == EnumAppSide.Client)
             {
-                byEntity.World.PlaySoundAt(SqueezingSound, byEntity, null, true, 16, 0.5f);
+                world.PlaySoundAt(SqueezingSound, byEntity, null, true, 16, 0.5f);
 
                 // Primary Particles
                 var color = ColorUtil.ToRgba(255, 219, 206, 164);
@@ -234,8 +236,7 @@ namespace ACulinaryArtillery
             slot.TakeOut(1);
             slot.MarkDirty();
 
-            IPlayer byPlayer = null;
-            if (byEntity is EntityPlayer) byPlayer = world.PlayerByUid(((EntityPlayer)byEntity).PlayerUID);
+            IPlayer? byPlayer = world.PlayerByUid((byEntity as EntityPlayer)?.PlayerUID);
             ItemStack returnStack = new(world.GetItem(!giveYolk ? eggShellCode : (eggYolkCode ?? eggShellCode)));
             if (byPlayer?.InventoryManager.TryGiveItemstack(returnStack) == false)
             {
