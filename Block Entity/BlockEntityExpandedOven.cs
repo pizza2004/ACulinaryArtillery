@@ -5,11 +5,6 @@ namespace ACulinaryArtillery
 {
     public class BlockEntityExpandedOven : BlockEntityOven
     {
-        public BlockEntityExpandedOven()
-        {
-
-        }
-
         protected override void OnBurnTick(float dt)
         {
             if (IsBurning) dt *= ACulinaryArtilleryConfig.Current.BEExpandedOvenFuelBurnRateMod;

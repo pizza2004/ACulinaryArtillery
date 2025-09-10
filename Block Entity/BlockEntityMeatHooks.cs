@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -8,16 +9,16 @@ using Vintagestory.GameContent;
 
 namespace ACulinaryArtillery
 {
-    public class BlockEntityMeatHooks : BlockEntityDisplayCase, ITexPositionSource
+    public class BlockEntityMeatHooks : BlockEntityDisplay, ITexPositionSource
     {
+        protected InventoryGeneric inventory;
+        public override InventoryBase Inventory => inventory;
         public override string InventoryClassName => "meathooks";
         public override string AttributeTransformCode => "meatHookTransform";
-        public override InventoryBase Inventory => inventory;
 
         public BlockEntityMeatHooks()
         {
             inventory = new InventoryDisplayed(this, 4, "meathooks-0", null, null);
-            var meshes = new MeshData[4];
         }
 
         public override void Initialize(ICoreAPI api)
@@ -27,26 +28,21 @@ namespace ACulinaryArtillery
             Inventory.OnAcquireTransitionSpeed += Inventory_OnAcquireTransitionSpeed;
         }
 
+        Vec3d? dropPos;
         private void RotDrop(float dt)
         {
-            for (int i = 0; i < 4; i++)
-            {
-                if (inventory[i].Itemstack?.Collectible.LastCodePart() == "rot") inventory.DropSlots(Pos.ToVec3d().Add(0.5, -1, 0.5), i);
-            }
+            dropPos ??= Pos.ToVec3d().Add(0.5, -1, 0.5);
+            inventory.DropSlots(dropPos, [.. inventory.Where(slot => slot.Itemstack?.Collectible.FirstCodePart() == "rot").Select(inventory.GetSlotId)]);
         }
 
         internal bool OnInteract(IPlayer byPlayer, BlockSelection blockSel)
         {
             ItemSlot slot = byPlayer.InventoryManager.ActiveHotbarSlot;
             if (slot.Empty) return TryTake(byPlayer, blockSel);
-            else
+            else if (slot.Itemstack.Collectible.Attributes?["meathookable"].AsBool() == true && TryPut(slot, blockSel))
             {
-                CollectibleObject colObj = slot.Itemstack.Collectible;
-                if (colObj.Attributes?["meathookable"].AsBool(false) == true && TryPut(slot, blockSel))
-                {
-                    Api.World.PlaySoundAt(slot.Itemstack?.Block?.Sounds?.Place ?? new AssetLocation("sounds/player/build"), byPlayer.Entity, byPlayer, true, 16);
-                    return true;
-                }
+                Api.World.PlaySoundAt(slot.Itemstack?.Block?.Sounds?.Place ?? "sounds/player/build", byPlayer.Entity, byPlayer, true, 16);
+                return true;
             }
 
             return false;
@@ -58,7 +54,6 @@ namespace ACulinaryArtillery
             if (transType == EnumTransitionType.Cure) return Block.Attributes["cureRate"].AsFloat(3);
             if (transType == EnumTransitionType.Dry) return Block.Attributes["dryRate"].AsFloat(3);
             return baseMul;
-
         }
 
         private bool TryPut(ItemSlot slot, BlockSelection blockSel)
@@ -154,21 +149,22 @@ namespace ACulinaryArtillery
         {
             return Block.Shape.rotateY switch
             {
-                90 => index % 2 == 0 ? Block.Shape.rotateY + 180 : Block.Shape.rotateY,
-                180 => index < 2 ? Block.Shape.rotateY : Block.Shape.rotateY + 180,
-                270 => index % 2 == 0 ? Block.Shape.rotateY : Block.Shape.rotateY + 180,
-                _ => index < 2 ? Block.Shape.rotateY + 180 : Block.Shape.rotateY,
+                0 => index % 2 == 0 ? 180 : 0,
+                90 => index % 2 == 0 ? 270 : 90,
+                180 => index < 2 ? 180 : 360,
+                270 => index % 2 == 0 ? 270 : 450,
+                var rot => index < 2 ? rot + 180 : rot
             };
         }
         public string PerishableInfoCompact(ICoreAPI Api, ItemSlot contentSlot, float ripenRate, bool withStackName = true)
         {
             if (contentSlot.Empty) return "";
 
-            StringBuilder dsc = new StringBuilder();
+            StringBuilder dsc = new();
 
             if (withStackName) dsc.Append(contentSlot.Itemstack.GetName());
 
-            TransitionState[] transitionStates = contentSlot.Itemstack?.Collectible.UpdateAndGetTransitionStates(Api.World, contentSlot);
+            TransitionState[]? transitionStates = contentSlot.Itemstack.Collectible.UpdateAndGetTransitionStates(Api.World, contentSlot);
 
             bool nowSpoiling = false;
 
@@ -199,7 +195,6 @@ namespace ACulinaryArtillery
                             }
                             else
                             {
-
                                 if (freshHoursLeft / hoursPerday >= Api.World.Calendar.DaysPerYear)
                                 {
                                     dsc.Append("\n" + Lang.Get("itemstack-perishable-fresh-years", Math.Round(freshHoursLeft / hoursPerday / Api.World.Calendar.DaysPerYear, 1)));

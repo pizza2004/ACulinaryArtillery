@@ -87,7 +87,7 @@ namespace ACulinaryArtillery
                     float fullness = contentStack.StackSize / props.ItemsPerLitre;
                     Shape? shape = capi.Assets.TryGet((props.IsOpaque ? ContentShapeLoc : LiquidContentShapeLoc).CopyWithPathPrefixAndAppendixOnce("shapes/", ".json"))?.ToObject<Shape>();
                     if (shape == null) return mesh;
-                    shape = SliceFlattenedShape(shape.FlattenHierarchy(), fullness, isSideways);
+                    shape = SliceFlattenedShape(shape.FlattenElementHierarchy(), fullness, isSideways);
 
                     var bottleMesh = mesh;
                     capi.Tesselator.TesselateShape("bottle", shape, out mesh, new BottleTextureSource(capi, contentStack, props.Texture, this), new Vec3f(Shape.rotateX, Shape.rotateY, Shape.rotateZ));
@@ -296,8 +296,7 @@ namespace ACulinaryArtillery
 
             if (GetContent(inSlot.Itemstack) is ItemStack content)
             {
-                string contentPath = content.Collectible.Code.Path;
-                string newDescription = content.Collectible.Code.Domain + ":itemdesc-" + contentPath;
+                string newDescription = content.Collectible.Code.Domain + ":itemdesc-" + content.Collectible.Code.Path;
                 string finalDescription = Lang.GetMatching(newDescription);
 
                 var dummy = new DummySlot(content);

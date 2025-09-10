@@ -15,7 +15,6 @@ namespace ACulinaryArtillery
         public override string InventoryClassName => "bottlerack";
         public override string AttributeTransformCode => "onBottlerackTransform";
         private readonly int slotCount = 16;
-        public override int DisplayedItems => slotCount;
 
         public BlockEntityBottleRack()
         {
@@ -37,19 +36,6 @@ namespace ACulinaryArtillery
                 }
             }
             return false;
-        }
-
-        internal void OnBreak(IPlayer byPlayer, BlockPos pos)
-        {
-            for (var index = 15; index >= 0; index--)
-            {
-                if (!inventory[index].Empty)
-                {
-                    var stack = inventory[index].TakeOut(1);
-                    if (stack.StackSize > 0) Api.World.SpawnItemEntity(stack, Pos.ToVec3d().Add(0.5, 0.5, 0.5));
-                    MarkDirty(true);
-                }
-            }
         }
 
         private bool TryPut(ItemSlot slot, BlockSelection blockSel)
