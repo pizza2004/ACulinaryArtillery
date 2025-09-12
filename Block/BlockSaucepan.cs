@@ -148,7 +148,7 @@ namespace ACulinaryArtillery
             if (GetContainableProps(product)?.Containable == true)
             {
                 outputSlot.Itemstack = inputSlot.TakeOut(1);
-                (outputSlot.Itemstack.Collectible as BlockLiquidContainerBase).TryPutLiquid(outputSlot.Itemstack, product, product.StackSize);
+                (outputSlot.Itemstack.Collectible as BlockLiquidContainerBase)?.TryPutLiquid(outputSlot.Itemstack, product, product.StackSize);
             }
             else outputSlot.Itemstack = product;
         }
@@ -180,9 +180,9 @@ namespace ACulinaryArtillery
             return 0;
         }
 
-        public static WaterTightContainableProps GetInContainerProps(ItemStack stack)
+        public static WaterTightContainableProps? GetInContainerProps(ItemStack stack)
         {
-            return stack?.ItemAttributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps>(null, stack.Collectible.Code?.Domain ?? "game");
+            return stack?.ItemAttributes?["waterTightContainerProps"]?.AsObject<WaterTightContainableProps?>(null, stack.Collectible.Code?.Domain ?? GlobalConstants.DefaultDomain);
         }
 
         public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
@@ -229,10 +229,10 @@ namespace ACulinaryArtillery
 
             if (AllowHeldLiquidTransfer)
             {
-                IPlayer byPlayer = (byEntity as EntityPlayer)?.Player;
+                IPlayer? byPlayer = (byEntity as EntityPlayer)?.Player;
 
-                ItemStack contentStack = GetContent(itemslot.Itemstack);
-                WaterTightContainableProps props = contentStack == null ? null : GetContentProps(contentStack);
+                ItemStack? contentStack = GetContent(itemslot.Itemstack);
+                WaterTightContainableProps? props = contentStack == null ? null : GetContentProps(contentStack);
 
                 Block targetedBlock = byEntity.World.BlockAccessor.GetBlock(blockSel.Position);
 
@@ -245,7 +245,7 @@ namespace ACulinaryArtillery
 
                 if (!TryFillFromBlock(itemslot, byEntity, blockSel.Position))
                 {
-                    BlockLiquidContainerTopOpened targetCntBlock = targetedBlock as BlockLiquidContainerTopOpened;
+                    BlockLiquidContainerTopOpened? targetCntBlock = targetedBlock as BlockLiquidContainerTopOpened;
                     if (targetCntBlock != null)
                     {
                         if (targetCntBlock.TryPutLiquid(blockSel.Position, contentStack, targetCntBlock.CapacityLitres) > 0)
@@ -273,7 +273,7 @@ namespace ACulinaryArtillery
 
         private bool SpillContents(ItemSlot containerSlot, EntityAgent byEntity, BlockSelection blockSel)
         {
-            WaterTightContainableProps props = GetContentProps(containerSlot.Itemstack);
+            WaterTightContainableProps? props = GetContentProps(containerSlot.Itemstack);
 
             if (props == null || !props.AllowSpill || props.WhenSpilled == null) return false;
 
@@ -351,9 +351,9 @@ namespace ACulinaryArtillery
             Dictionary<int, MultiTextureMeshRef> meshrefs = null;
             bool isSealed = itemstack.Attributes.GetBool("isSealed");
 
-            if (capi.ObjectCache.TryGetValue(Variant["metal"] + "MeshRefs", out object obj))
+            if (capi.ObjectCache.TryGetValue(Variant["metal"] + "MeshRefs", out object? obj))
             {
-                meshrefs = obj as Dictionary<int, MultiTextureMeshRef>;
+                meshrefs = obj as Dictionary<int, MultiTextureMeshRef> ?? [];
             }
             else capi.ObjectCache[Variant["metal"] + "MeshRefs"] = meshrefs = [];
 
@@ -361,7 +361,7 @@ namespace ACulinaryArtillery
 
             int hashcode = GetSaucepanHashCode(capi.World, contentStack, isSealed);
 
-            if (!meshrefs.TryGetValue(hashcode, out MultiTextureMeshRef meshRef))
+            if (!meshrefs.TryGetValue(hashcode, out MultiTextureMeshRef? meshRef))
             {
                 meshrefs[hashcode] = meshRef = capi.Render.UploadMultiTextureMesh(GenRightMesh(capi, contentStack, null, isSealed));
             }
@@ -369,10 +369,10 @@ namespace ACulinaryArtillery
             if (meshRef != null) renderinfo.ModelRef = meshRef;
         }
 
-        public string GetOutputText(IWorldAccessor world, InventorySmelting inv)
+        public string? GetOutputText(IWorldAccessor world, InventorySmelting inv)
         {
             List<ItemStack> contents = [.. new[] { inv[3].Itemstack, inv[4].Itemstack, inv[5].Itemstack, inv[6].Itemstack }.Where(stack => stack != null)];
-            ItemStack product = null;
+            ItemStack? product = null;
             int amount = 0;
 
             if (contents.Count == 1)
@@ -413,14 +413,14 @@ namespace ACulinaryArtillery
             return Lang.Get("firepit-gui-willcreate", amount, product.GetName());
         }
 
-        public MeshData GenRightMesh(ICoreClientAPI capi, ItemStack contentStack, BlockPos forBlockPos = null, bool isSealed = false)
+        public MeshData? GenRightMesh(ICoreClientAPI capi, ItemStack contentStack, BlockPos? forBlockPos = null, bool isSealed = false)
         {
             Shape shape = capi.Assets.TryGet("aculinaryartillery:shapes/block/" + FirstCodePart() + "/" + (isSealed && Attributes.IsTrue("canSeal") ? "lid" : "empty") + ".json").ToObject<Shape>();
             capi.Tesselator.TesselateShape(this, shape, out MeshData mesh);
 
             if (contentStack != null)
             {
-                WaterTightContainableProps props = GetInContainerProps(contentStack);
+                WaterTightContainableProps? props = GetInContainerProps(contentStack);
 
                 if (props.Texture == null) return null;
 

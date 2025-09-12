@@ -1,5 +1,4 @@
-﻿using Cairo;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,10 +15,10 @@ namespace ACulinaryArtillery
 
     public class ItemExpandedRawFood : Item, IExpandedFood, ITexPositionSource, IContainedMeshSource, IBakeableCallback
     {
-        public Size2i AtlasSize => targetAtlas.Size;
+        public Size2i AtlasSize => targetAtlas?.Size ?? throw new Exception("ItemExpandedRawFood has no defined targetAtlas");
         public TextureAtlasPosition this[string textureCode] => GetOrCreateTexPos(GetTexturePath(textureCode));
-        protected ITextureAtlasAPI targetAtlas;
-        protected Shape nowTesselatingShape;
+        protected ITextureAtlasAPI? targetAtlas;
+        protected Shape? nowTesselatingShape;
 
         public override bool Satisfies(ItemStack thisStack, ItemStack otherStack)
         {
@@ -32,8 +31,8 @@ namespace ACulinaryArtillery
 
         protected AssetLocation GetTexturePath(string textureCode)
         {
-            AssetLocation texturePath = null;
-            CompositeTexture tex;
+            AssetLocation? texturePath = null;
+            CompositeTexture? tex;
 
             if (Textures.TryGetValue(textureCode, out tex)) texturePath = tex.Baked.BakedName; // Prio 1: Get from collectible textures
             else if (Textures.TryGetValue("all", out tex)) texturePath = tex.Baked.BakedName; // Prio 2: Get from collectible textures, use "all" code
@@ -44,13 +43,14 @@ namespace ACulinaryArtillery
 
         protected TextureAtlasPosition GetOrCreateTexPos(AssetLocation texturePath)
         {
-            TextureAtlasPosition texpos = targetAtlas[texturePath];
+            if (targetAtlas == null) throw new Exception("ItemExpandedRawFood has no defined targetAtlas");
+            TextureAtlasPosition? texpos = targetAtlas[texturePath];
             if (texpos != null) return texpos;
 
-            IAsset texAsset = (api as ICoreClientAPI).Assets.TryGet(texturePath.Clone().WithPathPrefixOnce("textures/").WithPathAppendixOnce(".png"));
+            IAsset? texAsset = (api as ICoreClientAPI)?.Assets.TryGet(texturePath.Clone().WithPathPrefixOnce("textures/").WithPathAppendixOnce(".png"));
             if (targetAtlas.GetOrInsertTexture(texturePath, out _, out texpos, () => texAsset?.ToBitmap(api as ICoreClientAPI))) return texpos;
 
-            (api as ICoreClientAPI).World.Logger.Warning("Item {0} defined texture {1}, but no such texture was found.", Code, texturePath);
+            (api as ICoreClientAPI)?.World.Logger.Warning("Item {0} defined texture {1}, but no such texture was found.", Code, texturePath);
             return targetAtlas.UnknownTexturePosition;
         }
 
@@ -65,12 +65,12 @@ namespace ACulinaryArtillery
             {
                 if (slot.Itemstack == null) continue;
 
-                CraftingRecipeIngredient match = byRecipe?.Ingredients?.Values.FirstOrDefault(ing => ing.SatisfiesAsIngredient(slot.Itemstack));
+                CraftingRecipeIngredient? match = byRecipe?.Ingredients?.Values.FirstOrDefault(ing => ing.SatisfiesAsIngredient(slot.Itemstack));
 
                 if (slot.Itemstack.Collectible is ItemExpandedRawFood)
                 {
-                    string[] addIngs = (slot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
-                    float[] addSat = (slot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+                    string[]? addIngs = (slot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
+                    float[]? addSat = (slot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
 
                     if (addSat?.Length == 6) sat = [.. sat.Zip(addSat, (x, y) => x + (y * match?.Quantity ?? 1))];
                     if (addIngs?.Length > 0) ingredients.AddRange(addIngs);
@@ -97,11 +97,11 @@ namespace ACulinaryArtillery
                 if (val.Key.Itemstack.Collectible is ItemExpandedRawFood)
                 {
                     var stack = val.Key.Itemstack;
-                    string[] addIngs = (stack.Attributes["madeWith"] as StringArrayAttribute)?.value;
-                    float[] addSat = (stack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+                    string[]? addIngs = (stack.Attributes["madeWith"] as StringArrayAttribute)?.value;
+                    float[]? addSat = (stack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
 
-                    if (addSat != null && addSat.Length == 6) sat = [.. sat.Zip(addSat, (x, y) => x + (y * (val.Value.Quantity / (stack.Collectible is ItemExpandedLiquid ? 10 : 1))))];
-                    if (addIngs != null && addIngs.Length > 0) ingredients.AddRange(addIngs);
+                    if (addSat?.Length == 6) sat = [.. sat.Zip(addSat, (x, y) => x + (y * (val.Value.Quantity / (stack.Collectible is ItemExpandedLiquid ? 10 : 1))))];
+                    if (addIngs?.Length > 0) ingredients.AddRange(addIngs);
                 }
                 else
                 {
@@ -147,8 +147,8 @@ namespace ACulinaryArtillery
                 smeltedStack.Collectible.SetTransitionState(smeltedStack, EnumTransitionType.Perish, Math.Max(0, nowTransitionedHours));
             }
 
-            string[] ingredients = (inputSlot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
-            float[] satieties = (inputSlot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+            string[]? ingredients = (inputSlot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
+            float[]? satieties = (inputSlot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
 
 
             if (ingredients != null) smeltedStack.Attributes["madeWith"] = new StringArrayAttribute(ingredients);
@@ -168,8 +168,8 @@ namespace ACulinaryArtillery
 
         public override ItemStack OnTransitionNow(ItemSlot slot, TransitionableProperties props)
         {
-            string[] ings = (slot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
-            float[] xNutr = (slot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+            string[]? ings = (slot.Itemstack.Attributes["madeWith"] as StringArrayAttribute)?.value;
+            float[]? xNutr = (slot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
 
             ItemStack org = base.OnTransitionNow(slot, props);
             if (org?.Collectible is null or not ItemExpandedRawFood) return org;
@@ -182,9 +182,9 @@ namespace ACulinaryArtillery
 
         public void GetNutrientsFromIngredient(ref float[] satHolder, CollectibleObject ing, int mult)
         {
-            Dictionary<string, FoodNutritionProperties> expProps = Attributes?["expandedNutritionProps"]?.AsObject<Dictionary<string, FoodNutritionProperties>>();
+            Dictionary<string, FoodNutritionProperties>? expProps = Attributes?["expandedNutritionProps"]?.AsObject<Dictionary<string, FoodNutritionProperties>>();
 
-            FoodNutritionProperties ingProps = null;
+            FoodNutritionProperties? ingProps = null;
             expProps?.TryGetValue(FindMatch(ing.Code.Domain + ":" + ing.Code.Path, [.. expProps.Keys]), out ingProps);
             ingProps ??= ing.Attributes?["nutritionPropsWhenInMeal"].AsObject<FoodNutritionProperties>();
             ingProps ??= ing.NutritionProps;
@@ -217,7 +217,7 @@ namespace ACulinaryArtillery
         public override void OnBeforeRender(ICoreClientAPI capi, ItemStack itemstack, EnumItemRenderTarget target, ref ItemRenderInfo renderinfo)
         {
             RenderAlphaTest = 0.5f;
-            string[] ings = (itemstack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
+            string[]? ings = (itemstack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
             if (ings == null || ings.Length <= 0) return;
 
             Dictionary<string, MultiTextureMeshRef> meshrefs = ObjectCacheUtil.GetOrCreate(capi, "expandedFoodGuiMeshRefs", () => new Dictionary<string, MultiTextureMeshRef>());
@@ -232,11 +232,13 @@ namespace ACulinaryArtillery
             if (meshref != null) renderinfo.ModelRef = meshref;
         }
 
-        public virtual MeshData GenMesh(ITextureAtlasAPI targetAtlas, string[] ings, Vec3f rot = null, ITesselatorAPI tesselator = null)
+        public virtual MeshData? GenMesh(ITextureAtlasAPI targetAtlas, string[] ings, Vec3f? rot = null, ITesselatorAPI? tesselator = null)
         {
+            if (api is not ICoreClientAPI capi) return null;
+
             this.targetAtlas = targetAtlas;
             nowTesselatingShape = null;
-            tesselator ??= (api as ICoreClientAPI).Tesselator;
+            tesselator ??= capi.Tesselator;
 
             var renderIngs = Attributes?["renderIngredients"]?.AsObject<TreeAttribute>();
             if (renderIngs == null) return null;
@@ -252,7 +254,7 @@ namespace ACulinaryArtillery
                 {
                     string wildCard = WildcardUtil.GetWildcardValue(new AssetLocation(match), new AssetLocation(ings[i]));
                     path = keyValuePairs.GetAsString("shape");
-                    TreeAttribute textureMappings = keyValuePairs.GetTreeAttribute("textureMap") as TreeAttribute;
+                    TreeAttribute? textureMappings = keyValuePairs.GetTreeAttribute("textureMap") as TreeAttribute;
                     foreach (var key in textureMappings?.Keys)
                     {
                         textureMap[key] = textureMappings.GetString(key).Replace("{" + keyValuePairs.GetAsString("name") + "}", wildCard);
@@ -274,12 +276,12 @@ namespace ACulinaryArtillery
             AssetLocation baseIngredient = addShapes.Last();
             Dictionary<string, string> baseMapping = texureMappingsPerShape.Last();
 
-            MeshData mesh = null;
+            MeshData? mesh = null;
             float uvoffset = 0;
             for (int i = 0; i < addShapes.Count; i++)
             {
                 if (!addShapes[i].Valid) continue;
-                Shape addShape = (api as ICoreClientAPI).Assets.TryGet(addShapes[i]).ToObject<Shape>();
+                Shape? addShape = capi.Assets.TryGet(addShapes[i]).ToObject<Shape>();
                 if (addShape == null) continue;
 
                 Shape clonedAddShape = addShape.Clone();
@@ -295,7 +297,7 @@ namespace ACulinaryArtillery
                         clonedAddShape.Textures[key] = GetTexturePath(clonedKey); // path to desired texture
                     }
 
-                    ShapeTextureSource textureSource = new(api as ICoreClientAPI, clonedAddShape, null);
+                    ShapeTextureSource textureSource = new(capi, clonedAddShape, addShapes[i].ToString());
 
                     if (addShapes.Where(x => x != null && x == addShapes[i]).Count() > 1)
                     {
@@ -329,38 +331,40 @@ namespace ACulinaryArtillery
                 mesh ??= addIng;
             }
 
-            mesh.RenderPassesAndExtraBits.Fill((short)EnumChunkRenderPass.BlendNoCull);
+            mesh?.RenderPassesAndExtraBits.Fill((short)EnumChunkRenderPass.BlendNoCull);
             return mesh;
         }
 
-        public virtual MeshData GenMesh(ItemStack stack, ITextureAtlasAPI targetAtlas, BlockPos atBlockPos = null)
+        public virtual MeshData? GenMesh(ItemStack stack, ITextureAtlasAPI targetAtlas, BlockPos? atBlockPos = null)
         {
+            if (api is not ICoreClientAPI capi) return null;
+
             this.targetAtlas = targetAtlas;
             nowTesselatingShape = null;
             var be = api.World.BlockAccessor.GetBlockEntity(atBlockPos);
 
-            string[] ings = (stack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
-            if (ings?.Length > 0) return GenMesh(targetAtlas, ings, new Vec3f(0, be.Block.Shape.rotateY, 0), (api as ICoreClientAPI).Tesselator);
+            string[]? ings = (stack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
+            if (ings?.Length > 0) return GenMesh(targetAtlas, ings, new Vec3f(0, be.Block.Shape.rotateY, 0), capi.Tesselator);
 
-            if (stack.Item?.Shape?.Base is AssetLocation loc) nowTesselatingShape = (api as ICoreClientAPI).TesselatorManager.GetCachedShape(loc);
-            (api as ICoreClientAPI).Tesselator.TesselateItem(stack.Item, out MeshData mesh, this);
+            if (stack.Item?.Shape?.Base is AssetLocation loc) nowTesselatingShape = (api as ICoreClientAPI)?.TesselatorManager.GetCachedShape(loc);
+            capi.Tesselator.TesselateItem(stack.Item, out MeshData mesh, this);
             mesh.RenderPassesAndExtraBits.Fill((short)EnumChunkRenderPass.BlendNoCull);
             return mesh;
         }
 
         public string GetMeshCacheKey(ItemStack stack)
         {
-            string[] ings = (stack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
+            string[]? ings = (stack.Attributes?["madeWith"] as StringArrayAttribute)?.value;
             if (ings == null) return Code.ToShortString();
 
             return Code.ToShortString() + string.Join(",", ings);
         }
 
-        public MeshData GenMesh(ICoreClientAPI capi, string[] ings, ItemStack stack, Vec3f rot = null, ITesselatorAPI tesselator = null)
+        public MeshData? GenMesh(ICoreClientAPI capi, string[] ings, ItemStack stack, Vec3f rot = null, ITesselatorAPI tesselator = null)
         {
             tesselator ??= capi.Tesselator;
 
-            TreeAttribute renderIngs = Attributes?["renderIngredients"]?.AsObject<TreeAttribute>();
+            TreeAttribute? renderIngs = Attributes?["renderIngredients"]?.AsObject<TreeAttribute>();
             if (renderIngs == null) return null;
 
             List<AssetLocation> addShapes = [];
@@ -373,7 +377,7 @@ namespace ACulinaryArtillery
 
             if (addShapes.Count <= 0) return new MeshData();
 
-            MeshData mesh = null;
+            MeshData? mesh = null;
             for (int i = 0; i < addShapes.Count; i++)
             {
                 Shape addShape;
@@ -382,10 +386,12 @@ namespace ACulinaryArtillery
 
                 if (addShape.Textures != null)
                 {
-                    stack.Item.Textures.TryGetValue(addShape.Textures.Keys.First(), out CompositeTexture tex2);
-                    tesselator.TesselateShape("expandedfood", addShape, out var addIng, new EFTextureSource(capi, stack, tex2), rot);
-                    mesh?.AddMeshData(addIng);
-                    mesh ??= addIng;
+                    if (stack.Item.Textures.TryGetValue(addShape.Textures.Keys.First(), out CompositeTexture? tex2))
+                    {
+                        tesselator.TesselateShape("expandedfood", addShape, out var addIng, new EFTextureSource(capi, stack, tex2), rot);
+                        mesh?.AddMeshData(addIng);
+                        mesh ??= addIng;
+                    }
                 }
             }
 
@@ -424,7 +430,7 @@ namespace ACulinaryArtillery
             List<FoodNutritionProperties> foodProps = [];
 
             CollectibleObject obj = contentStack.Collectible;
-            FoodNutritionProperties stackProps;
+            FoodNutritionProperties? stackProps;
 
             if (obj.CombustibleProps != null && obj.CombustibleProps.SmeltedStack != null)
             {
@@ -452,9 +458,9 @@ namespace ACulinaryArtillery
             }
             if (obj is ItemExpandedRawFood && (contentStack.Attributes["expandedSats"] as FloatArrayAttribute)?.value?.Length == 6)
             {
-                FoodNutritionProperties[] exProps = (obj as ItemExpandedRawFood).GetPropsFromArray((contentStack.Attributes["expandedSats"] as FloatArrayAttribute).value);
+                FoodNutritionProperties[]? exProps = (obj as ItemExpandedRawFood)?.GetPropsFromArray((contentStack.Attributes["expandedSats"] as FloatArrayAttribute)?.value);
 
-                if (exProps != null || exProps.Length > 0)
+                if (exProps?.Length > 0)
                 {
                     foreach (FoodNutritionProperties exProp in exProps)
                     {
@@ -489,7 +495,7 @@ namespace ACulinaryArtillery
             return foodProps.ToArray();
         }
 
-        public override TransitionState[] UpdateAndGetTransitionStates(IWorldAccessor world, ItemSlot inslot)
+        public override TransitionState[]? UpdateAndGetTransitionStates(IWorldAccessor world, ItemSlot inslot)
         {
             ItemStack itemstack = inslot.Itemstack;
 
@@ -639,12 +645,11 @@ namespace ACulinaryArtillery
             return states.Where(s => s != null).OrderBy(s => (int)s.Props.Type).ToArray();
         }
 
-        public override TransitionState UpdateAndGetTransitionState(IWorldAccessor world, ItemSlot inslot, EnumTransitionType type)
+        public override TransitionState? UpdateAndGetTransitionState(IWorldAccessor world, ItemSlot inslot, EnumTransitionType type)
         {
-            TransitionState[] states = UpdateAndGetTransitionStates(world, inslot);
+            TransitionState[]? states = UpdateAndGetTransitionStates(world, inslot);
             TransitionableProperties[] propsm = GetTransitionableProperties(world, inslot?.Itemstack, null);
-            if (propsm == null)
-                return null;
+            if (propsm == null) return null;
 
             for (int i = 0; i < propsm.Length; i++)
             {
@@ -659,15 +664,15 @@ namespace ACulinaryArtillery
 
         public void OnBaked(ItemStack oldStack, ItemStack newStack)
         {
-            string[] ings = (oldStack?.Attributes["madeWith"] as StringArrayAttribute)?.value;
-            float[] sats = (oldStack?.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+            string[]? ings = (oldStack?.Attributes["madeWith"] as StringArrayAttribute)?.value;
+            float[]? sats = (oldStack?.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
             if (ings != null) newStack.Attributes["madeWith"] = new StringArrayAttribute(ings);
             if (sats != null) newStack.Attributes["expandedSats"] = new FloatArrayAttribute(sats);
         }
         public void OnCreatedByGrinding(ItemStack input, ItemStack output)
         {
-            string[] ings = (input?.Attributes["madeWith"] as StringArrayAttribute)?.value;
-            float[] sats = (input?.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
+            string[]? ings = (input?.Attributes["madeWith"] as StringArrayAttribute)?.value;
+            float[]? sats = (input?.Attributes["expandedSats"] as FloatArrayAttribute)?.value;
             if (ings != null) output.Attributes["madeWith"] = new StringArrayAttribute(ings);
             if (sats != null) output.Attributes["expandedSats"] = new FloatArrayAttribute(Array.ConvertAll(sats, i => i / output.StackSize));
         }
@@ -696,7 +701,7 @@ namespace ACulinaryArtillery
     {
         public ItemStack forContents;
         private readonly ICoreClientAPI capi;
-        private TextureAtlasPosition contentTextPos;
+        private TextureAtlasPosition? contentTextPos;
         private readonly CompositeTexture contentTexture;
 
         public EFTextureSource(ICoreClientAPI capi, ItemStack forContents, CompositeTexture contentTexture)
