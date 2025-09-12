@@ -8,7 +8,7 @@ namespace ACulinaryArtillery
     public class GuiDialogBlockEntityMixingBowl : GuiDialogBlockEntity
     {
         long lastRedrawMs;
-        string globalOutputText;
+        string? globalOutputText;
 
         protected override double FloatyDialogPosition => 0.75;
 
@@ -29,7 +29,7 @@ namespace ACulinaryArtillery
 
         void SetupDialog()
         {
-            ItemSlot hoveredSlot = capi.World.Player.InventoryManager.CurrentHoveredSlot;
+            ItemSlot? hoveredSlot = capi.World.Player.InventoryManager.CurrentHoveredSlot;
 
             if (hoveredSlot?.Inventory == Inventory) capi.Input.TriggerOnMouseLeaveSlot(hoveredSlot);
             else hoveredSlot = null;
@@ -69,10 +69,7 @@ namespace ACulinaryArtillery
 
             lastRedrawMs = capi.ElapsedMilliseconds;
 
-            if (hoveredSlot != null)
-            {
-                SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
-            }
+            if (hoveredSlot != null) SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
         }
 
         float inputGrindTime;
@@ -92,10 +89,8 @@ namespace ACulinaryArtillery
                 lastRedrawMs = capi.ElapsedMilliseconds;
             }
 
-            // don't ask, don't tell
-            globalOutputText = outputText;
+            globalOutputText = outputText; // don't ask, don't tell
         }
-
 
 
         private void OnBgDraw(Context ctx, ImageSurface surface, ElementBounds currentBounds)
@@ -112,7 +107,6 @@ namespace ACulinaryArtillery
 
             double dx = inputGrindTime / maxGrindTime;
 
-
             ctx.Rectangle(GuiElement.scaled(5), 0, GuiElement.scaled(125 * dx), GuiElement.scaled(100));
             ctx.Clip();
             LinearGradient gradient = new(0, 0, GuiElement.scaled(200), 0);
@@ -123,8 +117,6 @@ namespace ACulinaryArtillery
             gradient.Dispose();
             ctx.Restore();
         }
-
-
 
 
         private void SendInvPacket(object p)

@@ -11,11 +11,6 @@ namespace ACulinaryArtillery.Util
 {
     public static class HandbookInfoExtensions
     {
-        public static List<CookingRecipe> GetHandbookCookingRecipes(this ICoreAPI api)
-        {
-            return [.. api.GetCookingRecipes(), .. api.GetMixingRecipes()];
-        }
-
         public static void addCreatedByMixingInfo(this List<RichTextComponentBase> components, ItemSlot inSlot, ICoreClientAPI capi, ItemStack[] allStacks, ActionConsumable<string> openDetailPageFor)
         {
             DoughRecipe[] doughRecipes = [.. capi.GetKneadingRecipes().Where(rec => rec.Output.ResolvedItemstack.Satisfies(inSlot.Itemstack))];

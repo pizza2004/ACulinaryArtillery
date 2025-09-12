@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
@@ -81,9 +80,7 @@ namespace ACulinaryArtillery
 
         public SimmerRecipe? GetMatchingSimmerRecipe(IWorldAccessor world, ItemSlot[] slots)
         {
-            List<SimmerRecipe> recipes = Api.GetSimmerRecipes();
-
-            return recipes.FirstOrDefault(r => r.Matches(world, slots));
+            return Api.GetSimmerRecipes().FirstOrDefault(r => r.Matches(world, slots));
         }
 
         internal MeshData? GenRightMesh()
