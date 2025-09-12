@@ -9,7 +9,7 @@ namespace ACulinaryArtillery
 {
     public class ItemExpandedDough : ItemExpandedRawFood
     {
-        ItemStack[] tableStacks;
+        ItemStack[]? tableStacks;
         public override void OnLoaded(ICoreAPI api)
         {
             tableStacks ??= [.. api.World.Collectibles.Where(obj => (obj as Block)?.Attributes?["pieFormingSurface"].AsBool() == true).Select(obj => new ItemStack(obj))];
@@ -24,7 +24,7 @@ namespace ACulinaryArtillery
             base.OnUnloaded(api);
         }
 
-        public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, bool firstEvent, ref EnumHandHandling handling)
+        public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection? blockSel, EntitySelection? entitySel, bool firstEvent, ref EnumHandHandling handling)
         {
             if (blockSel != null)
             {
@@ -44,16 +44,12 @@ namespace ACulinaryArtillery
 
         public override WorldInteraction[] GetHeldInteractionHelp(ItemSlot inSlot)
         {
-            return new WorldInteraction[]
-            {
-                new()
-                {
-                    ActionLangCode = "heldhelp-makepie",
-                    Itemstacks = tableStacks,
-                    HotKeyCode = "sneak",
-                    MouseButton = EnumMouseButton.Right,
-                }
-            }.Append(base.GetHeldInteractionHelp(inSlot));
+            return [ new() {
+                ActionLangCode = "heldhelp-makepie",
+                Itemstacks = tableStacks,
+                HotKeyCode = "sneak",
+                MouseButton = EnumMouseButton.Right,
+            }, .. base.GetHeldInteractionHelp(inSlot)];
         }
     }
 

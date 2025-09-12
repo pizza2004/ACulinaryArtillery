@@ -37,7 +37,7 @@ namespace ACulinaryArtillery
             base.GetHeldItemInfo(inSlot, dsc, world, withDebugInfo);
 
             ItemStack stack = inSlot.Itemstack;
-            EntityPlayer entity = world.Side == EnumAppSide.Client ? (world as IClientWorldAccessor).Player.Entity : null;
+            EntityPlayer? entity = (world as IClientWorldAccessor)?.Player.Entity;
             float spoilState = AppendPerishableInfoText(inSlot, new StringBuilder(), world);
 
             if (GetNutritionProperties(world, stack, entity) != null && GetPropsFromArray((inSlot.Itemstack.Attributes["expandedSats"] as FloatArrayAttribute)?.value) is FoodNutritionProperties[] addProps && addProps?.Length > 0)

@@ -4,6 +4,7 @@ using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
+using Vintagestory.ServerMods.WorldEdit;
 
 namespace ACulinaryArtillery
 {
@@ -25,14 +26,13 @@ namespace ACulinaryArtillery
             slots = GenEmptySlots(8);
         }
 
-
         public override int Count => 8;
 
         public override ItemSlot this[int slotId]
         {
             get
             {
-                if (slotId < 0 || slotId >= Count) return null;
+                if (slotId < 0 || slotId >= Count) throw new ArgumentOutOfRangeException(nameof(slotId));
                 return slots[slotId];
             }
             set
@@ -53,7 +53,7 @@ namespace ACulinaryArtillery
                 for (int i = 2; i < Count; i++)
                 {
                     this[i].MaxSlotStackSize = 6;
-                    (this[i] as ItemSlotMixingBowl).Set(machine, i - 2);
+                    (this[i] as ItemSlotMixingBowl)?.Set(machine, i - 2);
                 }
             }
         }
@@ -68,11 +68,6 @@ namespace ACulinaryArtillery
             if (i == 0) return new ItemSlotPotInput(this);
             if (i == 1) return new ItemSlotWatertight(this);
             return new ItemSlotMixingBowl(this, machine, i - 2);
-        }
-
-        public override float GetSuitability(ItemSlot sourceSlot, ItemSlot targetSlot, bool isMerge)
-        {
-            return base.GetSuitability(sourceSlot, targetSlot, isMerge);
         }
 
         public override ItemSlot GetAutoPullFromSlot(BlockFacing atBlockFace)
@@ -130,9 +125,9 @@ namespace ACulinaryArtillery
 
             if (sourceSlot.Itemstack.Collectible is ILiquidSource source && source.AllowHeldLiquidTransfer)
             {
-                ItemSlotMixingBowl mixingSlot = inventory[1] as ItemSlotMixingBowl;
+                ItemSlotMixingBowl? mixingSlot = inventory[1] as ItemSlotMixingBowl;
 
-                ItemStack liquidcontainerbaseContents = source.GetContent(sourceSlot.Itemstack);
+                ItemStack? liquidcontainerbaseContents = source.GetContent(sourceSlot.Itemstack);
                 bool stackable = !Empty && Itemstack.Equals(world, liquidcontainerbaseContents, GlobalConstants.IgnoredStackAttributes);
 
                 if ((Empty || stackable) && liquidcontainerbaseContents != null && !machine.invLocked)
@@ -140,10 +135,11 @@ namespace ACulinaryArtillery
                     ItemStack liquidcontainerbaseStack = sourceSlot.Itemstack;
 
                     var lprops = BlockLiquidContainerBase.GetContainableProps(liquidcontainerbaseContents);
+                    float itemsPerLitre = lprops?.ItemsPerLitre ?? 1;
 
                     float toMoveLitres = op.CtrlDown ? source.TransferSizeLitres : source.CapacityLitres;
-                    float curSourceLitres = liquidcontainerbaseContents.StackSize / lprops.ItemsPerLitre * liquidcontainerbaseStack.StackSize;
-                    float curDestLitres = this.StackSize / lprops.ItemsPerLitre;
+                    float curSourceLitres = liquidcontainerbaseContents.StackSize / itemsPerLitre * liquidcontainerbaseStack.StackSize;
+                    float curDestLitres = this.StackSize / itemsPerLitre;
                     // Cap by source amount
                     toMoveLitres = Math.Min(toMoveLitres, curSourceLitres);
                     // Cap by target capacity
@@ -151,7 +147,7 @@ namespace ACulinaryArtillery
 
                     if (toMoveLitres > 0)
                     {
-                        int moveQuantity = (int)(toMoveLitres * lprops.ItemsPerLitre);
+                        int moveQuantity = (int)(toMoveLitres * itemsPerLitre);
                         ItemStack takenContentStack = source.TryTakeContent(liquidcontainerbaseStack, moveQuantity / liquidcontainerbaseStack.StackSize);
 
                         takenContentStack.StackSize *= liquidcontainerbaseStack.StackSize;
@@ -162,7 +158,7 @@ namespace ACulinaryArtillery
                         op.MovedQuantity = moveQuantity;
 
                         var pos = op.ActingPlayer?.Entity?.Pos;
-                        if (pos != null) op.World.PlaySoundAt(lprops.FillSound, pos.X, pos.Y, pos.Z);
+                        if (pos != null) op.World.PlaySoundAt(lprops?.FillSound, pos.X, pos.Y, pos.Z);
                     }
                     MarkDirty();
                     return;
@@ -171,11 +167,11 @@ namespace ACulinaryArtillery
                 return;
             }
 
-            string contentItemCode = sourceSlot.Itemstack?.ItemAttributes?["contentItemCode"].AsString();
+            string? contentItemCode = sourceSlot.Itemstack?.ItemAttributes?["contentItemCode"].AsString();
             if (contentItemCode != null && !machine.invLocked)
             {
                 ItemSlot mixingSlot = inventory[1];
-                ItemStack contentStack = new ItemStack(world.GetItem(AssetLocation.Create(contentItemCode, sourceSlot.Itemstack.Collectible.Code.Domain)));
+                ItemStack contentStack = new ItemStack(world.GetItem(AssetLocation.Create(contentItemCode, sourceSlot.Itemstack!.Collectible.Code.Domain)));
                 bool stackable = !mixingSlot.Empty && mixingSlot.Itemstack.Equals(world, contentStack, GlobalConstants.IgnoredStackAttributes);
 
                 if ((mixingSlot.Empty || stackable) && contentStack != null)
@@ -184,14 +180,14 @@ namespace ACulinaryArtillery
                     else mixingSlot.Itemstack = contentStack;
 
                     mixingSlot.MarkDirty();
-                    ItemStack bowlStack = new ItemStack(world.GetBlock(AssetLocation.Create(sourceSlot.Itemstack.ItemAttributes["emptiedBlockCode"].AsString(), sourceSlot.Itemstack.Collectible.Code.Domain)));
+                    ItemStack bowlStack = new ItemStack(world.GetBlock(AssetLocation.Create(sourceSlot.Itemstack?.ItemAttributes["emptiedBlockCode"].AsString(), sourceSlot.Itemstack?.Collectible.Code.Domain)));
                     if (sourceSlot.StackSize == 1)
                     {
                         sourceSlot.Itemstack = bowlStack;
                     }
                     else
                     {
-                        sourceSlot.Itemstack.StackSize--;
+                        sourceSlot.Itemstack!.StackSize--;
                         if (!op.ActingPlayer.InventoryManager.TryGiveItemstack(bowlStack))
                         {
                             world.SpawnItemEntity(bowlStack, op.ActingPlayer.Entity.Pos.XYZ);
@@ -210,11 +206,11 @@ namespace ACulinaryArtillery
 
         protected override void ActivateSlotRightClick(ItemSlot sourceSlot, ref ItemStackMoveOperation op)
         {
-            ItemSlotMixingBowl mixingSlot = inventory[1] as ItemSlotMixingBowl;
+            ItemSlotMixingBowl? mixingSlot = inventory[1] as ItemSlotMixingBowl;
             IWorldAccessor world = inventory.Api.World;
 
-            BlockLiquidContainerBase liquidcontainerbaseblock = sourceSlot.Itemstack?.Block as BlockLiquidContainerBase;
-            if (sourceSlot?.Itemstack?.Collectible is ILiquidSink sink && !Empty && sink.AllowHeldLiquidTransfer)
+            BlockLiquidContainerBase? liquidcontainerbaseblock = sourceSlot.Itemstack?.Block as BlockLiquidContainerBase;
+            if (sourceSlot.Itemstack?.Collectible is ILiquidSink sink && !Empty && sink.AllowHeldLiquidTransfer)
             {
                 ItemStack mixSlotStack = Itemstack;
                 var curTargetLiquidStack = sink.GetContent(sourceSlot.Itemstack);
@@ -225,7 +221,7 @@ namespace ACulinaryArtillery
                 {
                     var lprops = BlockLiquidContainerBase.GetContainableProps(mixSlotStack);
 
-                    float curSourceLitres = mixSlotStack.StackSize / lprops.ItemsPerLitre;
+                    float curSourceLitres = mixSlotStack.StackSize / (lprops?.ItemsPerLitre ?? 1);
                     float curTargetLitres = sink.GetCurrentLitres(sourceSlot.Itemstack);
 
                     float toMoveLitres = op.CtrlDown ? sink.TransferSizeLitres : (sink.CapacityLitres - curTargetLitres);
@@ -243,7 +239,7 @@ namespace ACulinaryArtillery
                         sourceSlot.MarkDirty();
 
                         var pos = op.ActingPlayer?.Entity?.Pos;
-                        if (pos != null) op.World.PlaySoundAt(lprops.PourSound, pos.X, pos.Y, pos.Z);
+                        if (pos != null) op.World.PlaySoundAt(lprops?.PourSound, pos.X, pos.Y, pos.Z);
                     }
                 }
 
@@ -285,7 +281,7 @@ namespace ACulinaryArtillery
         {
             if (!machine.invLocked) return true;
 
-            ItemStack stack = machine.lockedInv[stackNum];
+            ItemStack? stack = machine.lockedInv[stackNum];
             if (stack == null) return false;
 
             return stack.Equals(machine.Api.World, sourceSlot.Itemstack, GlobalConstants.IgnoredStackAttributes);

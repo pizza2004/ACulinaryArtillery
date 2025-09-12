@@ -48,12 +48,12 @@ namespace ACulinaryArtillery.Util
         public static bool IsBr(this CodeInstruction ci)
             => ci.opcode == OpCodes.Br || ci.opcode == OpCodes.Br_S;
 
-        public static bool IsCallVirt(this CodeInstruction ci, MethodBase target = null)
+        public static bool IsCallVirt(this CodeInstruction ci, MethodBase? target = null)
             => target != null
                 ? ci.opcode == OpCodes.Callvirt && ci.operand as MethodBase == target
                 : ci.opcode == OpCodes.Callvirt;
 
-        public static bool IsLdLoc(this CodeInstruction ci, Func<LocalBuilder, bool> predicate = null)
+        public static bool IsLdLoc(this CodeInstruction ci, Func<LocalBuilder, bool>? predicate = null)
             => (ci.opcode == OpCodes.Ldloc || ci.opcode == OpCodes.Ldloc_S)
                 && ci.operand is LocalBuilder lb
                 && (predicate?.Invoke(lb) ?? true);
@@ -68,7 +68,7 @@ namespace ACulinaryArtillery.Util
                 || ci.opcode == OpCodes.Ldloc_3
                 || IsLdLoc(ci);
 
-        public static bool IsStLoc(this CodeInstruction ci, Func<LocalBuilder, bool> predicate = null)
+        public static bool IsStLoc(this CodeInstruction ci, Func<LocalBuilder, bool>? predicate = null)
             => (ci.opcode == OpCodes.Stloc || ci.opcode == OpCodes.Stloc_S)
                 && ci.operand is LocalBuilder lb
                 && (predicate?.Invoke(lb) ?? true);
@@ -105,7 +105,7 @@ namespace ACulinaryArtillery.Util
         /// <summary>
         /// Factories to replace all <c>[St|Ld]loc[_(0|1|2|3)|S] [operand]</c> instructions with <c>[St|Ld]loc [targetLocalBuilder]</c>
         /// </summary>
-        private static IDictionary<OpCode, (OpCode Store, OpCode Load, System.Func<LocalBuilder, object, (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator)> Factory, bool CaptureOperand)> localRewriterFactories =
+        private static IDictionary<OpCode, (OpCode Store, OpCode Load, System.Func<LocalBuilder, object?, (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator)> Factory, bool CaptureOperand)> localRewriterFactories =
            new (OpCode Store, OpCode Load, bool CaptureLocal)[] {
                 // all relevant store/load tuples
                 (OpCodes.Stloc, OpCodes.Ldloc, true),
@@ -118,8 +118,8 @@ namespace ACulinaryArtillery.Util
            .ToDictionary(
                t => t,
                // create matchers & mutators for each tuple
-               t => (System.Func<LocalBuilder, object, (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator)>)(
-                    (LocalBuilder lb, object operand) =>
+               t => (System.Func<LocalBuilder, object?, (Predicate<CodeInstruction> Matcher, Action<CodeInstruction> Mutator)>)(
+                    (LocalBuilder lb, object? operand) =>
                     {
                         Predicate<CodeInstruction> simpleMatcher = ci => ci.opcode == t.Store || ci.opcode == t.Load;
                         return (

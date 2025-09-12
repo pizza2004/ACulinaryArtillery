@@ -1,4 +1,5 @@
-﻿using Vintagestory.API.Client;
+﻿using System;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
@@ -15,12 +16,12 @@ namespace ACulinaryArtillery
 
         ICoreClientAPI capi;
 
-        MultiTextureMeshRef saucepanRef;
-        MultiTextureMeshRef topRef;
+        MultiTextureMeshRef? saucepanRef;
+        MultiTextureMeshRef? topRef;
         BlockPos pos;
         float temp;
 
-        ILoadedSound cookingSound;
+        ILoadedSound? cookingSound;
 
         bool isInOutputSlot;
         Matrixf NewModelMat = new Matrixf();
@@ -31,9 +32,10 @@ namespace ACulinaryArtillery
             this.pos = pos;
             this.isInOutputSlot = isInOutputSlot;
 
-            BlockSaucepan saucepanBlock = capi.World.GetBlock(stack.Collectible.CodeWithVariant("type", "burned")) as BlockSaucepan;
+            BlockSaucepan? saucepanBlock = capi.World.GetBlock(stack.Collectible.CodeWithVariant("type", "burned")) as BlockSaucepan;
+            saucepanBlock ??= capi.World.GetBlock(stack.Collectible.CodeWithVariant("metal", "")) as BlockSaucepan;
 
-            if (stack?.Collectible.CodeWithVariant("type", "burned") == null) { saucepanBlock = capi.World.GetBlock(stack.Collectible.CodeWithVariant("metal", "")) as BlockSaucepan; }
+            if (saucepanBlock == null) throw new Exception("Could not load the saucepan block to obtain the model");
 
             capi.Tesselator.TesselateShape(saucepanBlock, capi.Assets.TryGet("aculinaryartillery:shapes/block/" + saucepanBlock.FirstCodePart() + "/" + "empty.json").ToObject<Shape>(), out MeshData saucepanMesh); // Main Shape
             saucepanRef = capi.Render.UploadMultiTextureMesh(saucepanMesh);

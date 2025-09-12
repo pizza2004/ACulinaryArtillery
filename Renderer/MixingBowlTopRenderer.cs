@@ -27,11 +27,7 @@ namespace ACulinaryArtillery
             meshref = capi.Render.UploadMesh(mesh);
         }
 
-        public double RenderOrder
-        {
-            get { return 0.5; }
-        }
-
+        public double RenderOrder => 0.5;
         public int RenderRange => 24;
 
         public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
@@ -68,7 +64,7 @@ namespace ACulinaryArtillery
 
             if (ShouldRotateAutomated)
             {
-                AngleRad = mechPowerPart.AngleRad;
+                AngleRad = mechPowerPart?.AngleRad ?? AngleRad;
             }
         }
 

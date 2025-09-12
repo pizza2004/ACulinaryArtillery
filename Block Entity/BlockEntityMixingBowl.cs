@@ -14,37 +14,6 @@ namespace ACulinaryArtillery
 {
     public class BlockEntityMixingBowl : BlockEntityOpenableContainer
     {
-        static SimpleParticleProperties FlourParticles;
-        static SimpleParticleProperties FlourDustParticles;
-
-        static BlockEntityMixingBowl()
-        {
-            // 1..20 per tick
-            FlourParticles = new SimpleParticleProperties(1, 3, ColorUtil.ToRgba(40, 220, 220, 220), new Vec3d(), new Vec3d(), new Vec3f(-0.25f, -0.25f, -0.25f), new Vec3f(0.25f, 0.25f, 0.25f), 1, 1, 0.1f, 0.3f, EnumParticleModel.Quad);
-            FlourParticles.AddPos.Set(1 + 2 / 32f, 0, 1 + 2 / 32f);
-            FlourParticles.AddQuantity = 20;
-            FlourParticles.MinVelocity.Set(-0.25f, 0, -0.25f);
-            FlourParticles.AddVelocity.Set(0.5f, 1, 0.5f);
-            FlourParticles.WithTerrainCollision = true;
-            FlourParticles.ParticleModel = EnumParticleModel.Cube;
-            FlourParticles.LifeLength = 1.5f;
-            FlourParticles.SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.QUADRATIC, -0.4f);
-
-            // 1..5 per tick
-            FlourDustParticles = new SimpleParticleProperties(1, 3, ColorUtil.ToRgba(40, 220, 220, 220), new Vec3d(), new Vec3d(), new Vec3f(-0.25f, -0.25f, -0.25f), new Vec3f(0.25f, 0.25f, 0.25f), 1, 1, 0.1f, 0.3f, EnumParticleModel.Quad);
-            FlourDustParticles.AddPos.Set(1 + 2 / 32f, 0, 1 + 2 / 32f);
-            FlourDustParticles.AddQuantity = 5;
-            FlourDustParticles.MinVelocity.Set(-0.05f, 0, -0.05f);
-            FlourDustParticles.AddVelocity.Set(0.1f, 0.2f, 0.1f);
-            FlourDustParticles.WithTerrainCollision = false;
-            FlourDustParticles.ParticleModel = EnumParticleModel.Quad;
-            FlourDustParticles.LifeLength = 1.5f;
-            FlourDustParticles.SelfPropelled = true;
-            FlourDustParticles.GravityEffect = 0;
-            FlourDustParticles.SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.QUADRATIC, 0.4f);
-            FlourDustParticles.OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.QUADRATIC, -16f);
-        }
-
         ILoadedSound? ambientSound;
 
         internal InventoryMixingBowl inventory;
@@ -137,10 +106,7 @@ namespace ACulinaryArtillery
             RegisterGameTickListener(Every100ms, 100);
             RegisterGameTickListener(Every500ms, 500);
 
-            if (Block.Attributes["capacityLitres"].Exists == true)
-            {
-                CapacityLitres = Block.Attributes["capacityLitres"].AsInt(CapacityLitres);
-            }
+            CapacityLitres = Block.Attributes["capacityLitres"]?.AsInt(CapacityLitres) ?? CapacityLitres;
 
             if (api is ICoreClientAPI capi)
             {
@@ -197,12 +163,6 @@ namespace ACulinaryArtillery
             }
         }
 
-
-        public void IsMixing(IPlayer byPlayer)
-        {
-            SetPlayerMixing(byPlayer, true);
-        }
-
         private void Every100ms(float dt)
         {
             float mixSpeed = MixSpeed;
@@ -219,7 +179,7 @@ namespace ACulinaryArtillery
             }
 
             // Use up fuel
-            if (CanMix() && mixSpeed > 0)
+            if (CanMix && mixSpeed > 0)
             {
                 inputMixTime += dt * mixSpeed;
 
@@ -393,10 +353,7 @@ namespace ACulinaryArtillery
             return mesh;
         }
 
-        public bool CanMix()
-        {
-            return GetMatchingMixingRecipe(Api.World, IngredStacks) != null || GetMatchingDoughRecipe(Api.World, IngredSlots) != null;
-        }
+        public bool CanMix => GetMatchingMixingRecipe(Api.World, IngredStacks) != null || GetMatchingDoughRecipe(Api.World, IngredSlots) != null;
 
         #region Events
         public override bool OnPlayerRightClick(IPlayer byPlayer, BlockSelection blockSel)

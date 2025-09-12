@@ -18,7 +18,7 @@ namespace ACulinaryArtillery
 
         public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
         {
-            return (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityMeatHooks)?.OnInteract(byPlayer, blockSel) ??
+            return GetBlockEntity<BlockEntityMeatHooks>(blockSel.Position)?.OnInteract(byPlayer, blockSel) ??
                    base.OnBlockInteractStart(world, byPlayer, blockSel);
         }
     }

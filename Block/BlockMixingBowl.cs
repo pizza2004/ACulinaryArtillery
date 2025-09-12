@@ -48,7 +48,7 @@ namespace ACulinaryArtillery
                     return true;
                 }
 
-                if (beBowl.CanMix() && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
+                if (beBowl.CanMix && (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
                 {
                     beBowl.SetPlayerMixing(byPlayer, true);
                     return true;
@@ -63,8 +63,8 @@ namespace ACulinaryArtillery
             if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityMixingBowl beBowl &&
                 (blockSel.SelectionBoxIndex == 1 || beBowl.Inventory.openedByPlayerGUIds.Contains(byPlayer.PlayerUID)))
             {
-                beBowl.IsMixing(byPlayer);
-                return beBowl.CanMix();
+                beBowl.SetPlayerMixing(byPlayer, true);
+                return beBowl.CanMix;
             }
 
             return false;
@@ -103,7 +103,7 @@ namespace ACulinaryArtillery
                     {
                         ActionLangCode = "aculinaryartillery:blockhelp-mixingbowl-mix",
                         MouseButton = EnumMouseButton.Right,
-                        ShouldApply = (wi, bs, es) =>  (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl)?.CanMix() == true
+                        ShouldApply = (wi, bs, es) =>  (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntityMixingBowl)?.CanMix == true
                     },
                     new()
                     {
