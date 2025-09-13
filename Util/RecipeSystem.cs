@@ -330,7 +330,7 @@ namespace ACulinaryArtillery
 
         public JsonItemStack Output;
 
-        public ItemStack TryCraftNow(ICoreAPI api, ItemSlot[] inputslots)
+        public ItemStack? TryCraftNow(ICoreAPI api, ItemSlot[] inputslots)
         {
             var matched = pairInput(inputslots);
             
@@ -339,8 +339,11 @@ namespace ACulinaryArtillery
 
             if (mixedStack.StackSize <= 0) return null;
 
-            IExpandedFood food;
-            if ((food = mixedStack.Collectible as IExpandedFood) != null) food.OnCreatedByKneading(matched, mixedStack);
+            if (mixedStack.Collectible is IExpandedFood food)
+            {
+                // Need to rework the pair input thing to a dictionary
+                //food.OnCreatedByKneading(matched, mixedStack);
+            }
 
             foreach (var val in matched)
             {
@@ -355,7 +358,7 @@ namespace ACulinaryArtillery
         {
             int outputStackSize = 0;
 
-            List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> matched = pairInput(inputSlots);
+            List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>? matched = pairInput(inputSlots);
             if (matched == null) return false;
 
             outputStackSize = getOutputSize(matched);
@@ -363,7 +366,7 @@ namespace ACulinaryArtillery
             return outputStackSize >= 0;
         }
 
-        List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> pairInput(ItemSlot[] inputStacks)
+        List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>? pairInput(ItemSlot[] inputStacks)
         {
             List<int> alreadyFound = new List<int>();
 
@@ -405,7 +408,7 @@ namespace ACulinaryArtillery
         }
 
 
-        int getOutputSize(List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> matched)
+        int getOutputSize(List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>? matched)
         {
             int outQuantityMul = -1;
 

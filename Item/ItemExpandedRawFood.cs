@@ -87,7 +87,7 @@ namespace ACulinaryArtillery
             outputSlot.Itemstack.Attributes["expandedSats"] = new FloatArrayAttribute([.. sat]);
         }
 
-        public void OnCreatedByKneading(List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> input, ItemStack output)
+        public void OnCreatedByKneading(Dictionary<ItemSlot, CraftingRecipeIngredient> input, ItemStack output)
         {
             HashSet<string> ingredients = [];
             float[] sat = new float[6];
@@ -680,7 +680,7 @@ namespace ACulinaryArtillery
 
     public interface IExpandedFood
     {
-        void OnCreatedByKneading(List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>> input, ItemStack output);
+        void OnCreatedByKneading(Dictionary<ItemSlot, CraftingRecipeIngredient> input, ItemStack output);
         void OnCreatedByGrinding(ItemStack input, ItemStack output);
     }
 

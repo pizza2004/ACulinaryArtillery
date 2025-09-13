@@ -85,11 +85,11 @@ namespace ACulinaryArtillery
 
         internal MeshData? GenRightMesh()
         {
-            if (Api is not ICoreClientAPI capi || ownBlock?.Code.Path.Contains("clay") != false) return null;
+            if (Api is not ICoreClientAPI capi || ownBlock == null) return null;
 
-            MeshData mesh = ownBlock.GenRightMesh(capi, GetContent(), Pos, isSealed);
+            MeshData? mesh = ownBlock.GenRightMesh(capi, GetContent(), Pos, isSealed);
 
-            if (mesh.CustomInts != null)
+            if (mesh?.CustomInts != null)
             {
                 for (int i = 0; i < mesh.CustomInts.Count; i++)
                 {

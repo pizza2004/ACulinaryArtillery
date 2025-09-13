@@ -15,19 +15,11 @@ namespace ACulinaryArtillery
         public override bool CanDrinkFrom => true;
         public override bool IsTopOpened => true;
         public override bool AllowHeldLiquidTransfer => true;
-        public AssetLocation liquidFillSoundLocation => new("game:sounds/effect/water-fill");
-        private List<SimmerRecipe> simmerRecipes => api.GetSimmerRecipes();
-
-        public bool isSealed;
-
-        public override void OnLoaded(ICoreAPI api)
-        {
-            base.OnLoaded(api);
-        }
 
         public IInFirepitRenderer GetRendererWhenInFirepit(ItemStack stack, BlockEntityFirepit firepit, bool forOutputSlot)
         {
-            return new SaucepanInFirepitRenderer(api as ICoreClientAPI, stack, firepit.Pos, forOutputSlot);
+            if (api is not ICoreClientAPI capi) throw new Exception("Saucepan block firepit renderer attempted to run on the server for some reason");
+            return new SaucepanInFirepitRenderer(capi, stack, firepit.Pos, forOutputSlot);
         }
 
         public EnumFirepitModel GetDesiredFirepitModel(ItemStack stack, BlockEntityFirepit firepit, bool forOutputSlot)
@@ -43,35 +35,25 @@ namespace ACulinaryArtillery
                                                                           .Where(stack => stack != null) ?? []
                                                 ];
 
-            return
-            [
-                new WorldInteraction()
-                {
-                    ActionLangCode = "game:blockhelp-behavior-rightclickpickup",
-                    MouseButton = EnumMouseButton.Right,
-                    RequireFreeHand = true
-                },
-                new WorldInteraction()
-                {
-                    ActionLangCode = "blockhelp-bucket-rightclick",
-                    MouseButton = EnumMouseButton.Right,
-                    Itemstacks = liquidContainerStacks
-                },
-                new WorldInteraction()
-                {
-                    ActionLangCode = "aculinaryartillery:blockhelp-open", // json lang file. 
-                    HotKeyCodes = ["sneak", "sprint"],
-                    MouseButton = EnumMouseButton.Right,
-                    ShouldApply = (wi, bs, es) => (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntitySaucepan)?.isSealed == true
-                },
-                new WorldInteraction()
-                {
-                    ActionLangCode = "aculinaryartillery:blockhelp-close", // json lang file. 
-                    HotKeyCodes = ["sneak", "sprint"],
-                    MouseButton = EnumMouseButton.Right,
-                    ShouldApply = (wi, bs, es) => (world.BlockAccessor.GetBlockEntity(bs.Position) as BlockEntitySaucepan)?.isSealed == false
-                }
-            ];
+            return [ new () {
+                ActionLangCode = "game:blockhelp-behavior-rightclickpickup",
+                MouseButton = EnumMouseButton.Right,
+                RequireFreeHand = true
+            }, new () {
+                ActionLangCode = "blockhelp-bucket-rightclick",
+                MouseButton = EnumMouseButton.Right,
+                Itemstacks = liquidContainerStacks
+            }, new () {
+                ActionLangCode = "aculinaryartillery:blockhelp-open", // json lang file. 
+                HotKeyCodes = ["sneak", "sprint"],
+                MouseButton = EnumMouseButton.Right,
+                ShouldApply = (wi, bs, es) => GetBlockEntity<BlockEntitySaucepan>(bs.Position)?.isSealed == true
+            }, new () {
+                ActionLangCode = "aculinaryartillery:blockhelp-close", // json lang file. 
+                HotKeyCodes = ["sneak", "sprint"],
+                MouseButton = EnumMouseButton.Right,
+                ShouldApply = (wi, bs, es) => GetBlockEntity<BlockEntitySaucepan>(bs.Position)?.isSealed == false
+            }];
         }
 
         public override bool CanSmelt(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemStack inputStack, ItemStack outputStack)
@@ -94,7 +76,7 @@ namespace ACulinaryArtillery
                 }
             }
 
-            return stacks.Count != 0 && simmerRecipes?.Any(rec => rec.Match(stacks) >= 1) == true;
+            return stacks.Count != 0 && api.GetSimmerRecipes().Any(rec => rec.Match(stacks) >= 1);
         }
 
         public override void DoSmelt(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot)
@@ -110,7 +92,7 @@ namespace ACulinaryArtillery
             }
             else if (contents.Count > 1)
             {
-                if (simmerRecipes.FirstOrDefault(rec => rec.Match(contents) > 0) is not SimmerRecipe match) return; // Make sure a recipe matches
+                if (api.GetSimmerRecipes().FirstOrDefault(rec => rec.Match(contents) > 0) is not SimmerRecipe match) return; // Make sure a recipe matches
                 int amountForTheseIngredients = match.Match(contents); 
                 
                 match.Simmering.SmeltedStack.Resolve(world, "Saucepansimmerrecipesmeltstack");
@@ -121,17 +103,19 @@ namespace ACulinaryArtillery
                 //if the recipe produces something from Expanded Foods
                 if (product.Collectible is IExpandedFood prodObj)
                 {
-                    var alreadyfound = new List<ItemSlot>();
-                    var input = new List<KeyValuePair<ItemSlot, CraftingRecipeIngredient>>();
+                    var input = new Dictionary<ItemSlot, CraftingRecipeIngredient>();
 
                     foreach (CraftingRecipeIngredient ing in match.Ingredients) //for each ingredient in the recipe
                     {
+                        if (cookingSlotsProvider.Slots.All(input.ContainsKey)) break;
+
                         foreach (ItemSlot slot in cookingSlotsProvider.Slots)
                         {
-                            if (!alreadyfound.Contains(slot) && !slot.Empty && ing.SatisfiesAsIngredient(slot.Itemstack))
+                            if (input.ContainsKey(slot)) continue;
+
+                            if (ing.SatisfiesAsIngredient(slot.Itemstack))
                             {
-                                alreadyfound.Add(slot);
-                                input.Add(new KeyValuePair<ItemSlot, CraftingRecipeIngredient>(slot, ing));
+                                input[slot] = ing;
                                 break;
                             }
                         }
@@ -159,7 +143,7 @@ namespace ACulinaryArtillery
             List<ItemStack> contents = [.. cookingSlotsProvider.Slots.Where(slot => !slot.Empty).Select(slot => slot.Itemstack)];
 
             if (contents.Count == 1 && contents[0].Collectible.CombustibleProps is CombustibleProperties combustProps) return combustProps.MeltingDuration * contents[0].StackSize / speed;
-            else if (contents.Count > 1 && simmerRecipes.FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
+            else if (contents.Count > 1 && api.GetSimmerRecipes().FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
             {
                 return match.Simmering.MeltingDuration * match.Match(contents) / speed;
             }
@@ -172,7 +156,7 @@ namespace ACulinaryArtillery
             List<ItemStack> contents = [.. cookingSlotsProvider.Slots.Where(slot => !slot.Empty).Select(slot => slot.Itemstack)];
 
             if (contents.Count == 1 && contents[0].Collectible.CombustibleProps is CombustibleProperties combustProps) return combustProps.MeltingPoint;
-            else if (contents.Count > 1 && simmerRecipes.FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
+            else if (contents.Count > 1 && api.GetSimmerRecipes().FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
             {
                 return match.Simmering.MeltingPoint;
             }
@@ -221,134 +205,12 @@ namespace ACulinaryArtillery
         {
             if (itemslot.Itemstack?.Attributes.GetBool("isSealed") == true) return;
 
-            if (blockSel == null || byEntity.Controls.Sneak)
-            {
-                base.OnHeldInteractStart(itemslot, byEntity, blockSel, entitySel, firstEvent, ref handHandling);
-                return;
-            }
-
-            if (AllowHeldLiquidTransfer)
-            {
-                IPlayer? byPlayer = (byEntity as EntityPlayer)?.Player;
-
-                ItemStack? contentStack = GetContent(itemslot.Itemstack);
-                WaterTightContainableProps? props = contentStack == null ? null : GetContentProps(contentStack);
-
-                Block targetedBlock = byEntity.World.BlockAccessor.GetBlock(blockSel.Position);
-
-                if (!byEntity.World.Claims.TryAccess(byPlayer, blockSel.Position, EnumBlockAccessFlags.BuildOrBreak))
-                {
-                    byEntity.World.BlockAccessor.MarkBlockDirty(blockSel.Position.AddCopy(blockSel.Face));
-                    byPlayer?.InventoryManager.ActiveHotbarSlot?.MarkDirty();
-                    return;
-                }
-
-                if (!TryFillFromBlock(itemslot, byEntity, blockSel.Position))
-                {
-                    BlockLiquidContainerTopOpened? targetCntBlock = targetedBlock as BlockLiquidContainerTopOpened;
-                    if (targetCntBlock != null)
-                    {
-                        if (targetCntBlock.TryPutLiquid(blockSel.Position, contentStack, targetCntBlock.CapacityLitres) > 0)
-                        {
-                            TryTakeContent(itemslot.Itemstack, 1);
-                            byEntity.World.PlaySoundAt(props.FillSpillSound, blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z, byPlayer);
-                        }
-
-                    }
-                    else if (byEntity.Controls.Sprint) SpillContents(itemslot, byEntity, blockSel);
-                }
-            }
-
-            if (CanDrinkFrom)
-            {
-                if (GetNutritionProperties(byEntity.World, itemslot.Itemstack, byEntity) != null)
-                {
-                    tryEatBegin(itemslot, byEntity, ref handHandling, "drink", 4);
-                    return;
-                }
-            }
-
-            if (AllowHeldLiquidTransfer || CanDrinkFrom) handHandling = EnumHandHandling.PreventDefaultAction; // Prevent placing on normal use
-        }
-
-        private bool SpillContents(ItemSlot containerSlot, EntityAgent byEntity, BlockSelection blockSel)
-        {
-            WaterTightContainableProps? props = GetContentProps(containerSlot.Itemstack);
-
-            if (props == null || !props.AllowSpill || props.WhenSpilled == null) return false;
-
-            BlockPos secondPos = blockSel.Position.AddCopy(blockSel.Face);
-            var byPlayer = (byEntity as EntityPlayer)?.Player;
-
-            if (!byEntity.World.Claims.TryAccess(byPlayer, secondPos, EnumBlockAccessFlags.BuildOrBreak))
-            {
-                return false;
-            }
-
-            var action = props.WhenSpilled.Action;
-            float currentlitres = GetCurrentLitres(containerSlot.Itemstack);
-
-            if (currentlitres > 0 && currentlitres < 10)
-            {
-                action = WaterTightContainableProps.EnumSpilledAction.DropContents;
-            }
-
-            if (action == WaterTightContainableProps.EnumSpilledAction.PlaceBlock)
-            {
-                Block waterBlock = byEntity.World.GetBlock(props.WhenSpilled.Stack.Code);
-                IBlockAccessor blockAcc = byEntity.World.BlockAccessor;
-                BlockPos pos = blockSel.Position;
-
-                if (props.WhenSpilled.StackByFillLevel != null)
-                {
-                    JsonItemStack fillLevelStack;
-                    props.WhenSpilled.StackByFillLevel.TryGetValue((int)currentlitres, out fillLevelStack);
-                    if (fillLevelStack != null) waterBlock = byEntity.World.GetBlock(fillLevelStack.Code);
-                }
-
-                Block currentblock = blockAcc.GetBlock(pos);
-                if (currentblock.Replaceable >= 6000)
-                {
-                    blockAcc.SetBlock(waterBlock.BlockId, pos);
-                    blockAcc.TriggerNeighbourBlockUpdate(pos);
-                    blockAcc.MarkBlockDirty(pos);
-                }
-                else
-                {
-                    if (blockAcc.GetBlock(secondPos).Replaceable >= 6000)
-                    {
-                        blockAcc.SetBlock(waterBlock.BlockId, secondPos);
-                        blockAcc.TriggerNeighbourBlockUpdate(secondPos);
-                        blockAcc.MarkBlockDirty(secondPos);
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            var contentStack = GetContent(containerSlot.Itemstack);
-
-            if (action == WaterTightContainableProps.EnumSpilledAction.DropContents)
-            {
-                props.WhenSpilled.Stack.Resolve(byEntity.World, "liquidcontainerbasespill");
-
-                ItemStack stack = props.WhenSpilled.Stack.ResolvedItemstack.Clone();
-                stack.StackSize = contentStack.StackSize;
-
-                byEntity.World.SpawnItemEntity(stack, blockSel.Position.ToVec3d().Add(blockSel.HitPosition));
-            }
-
-            int moved = SplitStackAndPerformAction(byEntity, containerSlot, (stack) => { SetContent(stack, null); return contentStack.StackSize; });
-
-            DoLiquidMovedEffects(byPlayer, contentStack, moved, EnumLiquidDirection.Pour);
-            return true;
+            base.OnHeldInteractStart(itemslot, byEntity, blockSel, entitySel, firstEvent, ref handHandling);
         }
 
         public override void OnBeforeRender(ICoreClientAPI capi, ItemStack itemstack, EnumItemRenderTarget target, ref ItemRenderInfo renderinfo)
         {
-            Dictionary<int, MultiTextureMeshRef> meshrefs = null;
+            Dictionary<int, MultiTextureMeshRef>? meshrefs = null;
             bool isSealed = itemstack.Attributes.GetBool("isSealed");
 
             if (capi.ObjectCache.TryGetValue(Variant["metal"] + "MeshRefs", out object? obj))
@@ -359,7 +221,7 @@ namespace ACulinaryArtillery
 
             if (GetContent(itemstack) is not ItemStack contentStack) return;
 
-            int hashcode = GetSaucepanHashCode(capi.World, contentStack, isSealed);
+            int hashcode = (contentStack.StackSize + "x" + contentStack.Collectible.Code.ToShortString() + (isSealed ? "sealed" : "")).GetHashCode();
 
             if (!meshrefs.TryGetValue(hashcode, out MultiTextureMeshRef? meshRef))
             {
@@ -371,7 +233,7 @@ namespace ACulinaryArtillery
 
         public string? GetOutputText(IWorldAccessor world, InventorySmelting inv)
         {
-            List<ItemStack> contents = [.. new[] { inv[3].Itemstack, inv[4].Itemstack, inv[5].Itemstack, inv[6].Itemstack }.Where(stack => stack != null)];
+            List<ItemStack> contents = [.. inv.Skip(3).Select(slot => slot.Itemstack).Where(stack => stack != null)];
             ItemStack? product = null;
             int amount = 0;
 
@@ -383,7 +245,7 @@ namespace ACulinaryArtillery
 
                 amount = contents[0].StackSize / contents[0].Collectible.CombustibleProps.SmeltedRatio;
             }
-            else if (contents.Count > 1 && simmerRecipes.FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
+            else if (contents.Count > 1 && api.GetSimmerRecipes().FirstOrDefault(rec => rec.Match(contents) > 0) is SimmerRecipe match)
             {
                 product = match.Simmering.SmeltedStack.ResolvedItemstack;
 
@@ -393,21 +255,11 @@ namespace ACulinaryArtillery
             }
             else return null;
 
-            if (product?.Collectible.Attributes?["waterTightContainerProps"].Exists == true)
+            if (GetContainableProps(product) is WaterTightContainableProps props)
             {
-                float litreFloat = amount * (product.StackSize / GetContainableProps(product).ItemsPerLitre);
-                string litres;
+                float litreFloat = amount * (product.StackSize / props.ItemsPerLitre);
 
-                if (litreFloat < 0.1)
-                {
-                    litres = Lang.Get("{0} mL", (int)(litreFloat * 1000));
-                }
-                else
-                {
-                    litres = Lang.Get("{0:0.##} L", litreFloat);
-                }
-
-                return Lang.Get("mealcreation-nonfood-liquid", litres, product.GetName());
+                return Lang.Get("mealcreation-nonfood-liquid", litreFloat < 0.1 ? Lang.Get("{0} mL", (int)(litreFloat * 1000)) : Lang.Get("{0:0.##} L", litreFloat), product.GetName());
             }
 
             return Lang.Get("firepit-gui-willcreate", amount, product.GetName());
@@ -418,10 +270,8 @@ namespace ACulinaryArtillery
             Shape shape = capi.Assets.TryGet("aculinaryartillery:shapes/block/" + FirstCodePart() + "/" + (isSealed && Attributes.IsTrue("canSeal") ? "lid" : "empty") + ".json").ToObject<Shape>();
             capi.Tesselator.TesselateShape(this, shape, out MeshData mesh);
 
-            if (contentStack != null)
+            if (contentStack != null && GetInContainerProps(contentStack) is WaterTightContainableProps props)
             {
-                WaterTightContainableProps? props = GetInContainerProps(contentStack);
-
                 if (props.Texture == null) return null;
 
                 string fullness = Math.Round(contentStack.StackSize / (props.ItemsPerLitre * CapacityLitres), 1, MidpointRounding.ToPositiveInfinity).ToString().Replace(",", ".");
@@ -449,22 +299,16 @@ namespace ACulinaryArtillery
                     mesh.CustomInts.Values.Fill(0x4000000); // light foam only
                     mesh.CustomFloats = new CustomMeshDataPartFloat(mesh.FlagsCount * 2) { Count = mesh.FlagsCount * 2 };
                 }
-
             }
 
             return mesh;
-        }
-
-        public int GetSaucepanHashCode(IClientWorldAccessor world, ItemStack contentStack, bool isSealed)
-        {
-            return (contentStack.StackSize + "x" + contentStack.Collectible.Code.ToShortString() + (isSealed ? "sealed" : "")).GetHashCode();
         }
 
         public override ItemStack OnPickBlock(IWorldAccessor world, BlockPos pos)
         {
             ItemStack drop = base.OnPickBlock(world, pos);
 
-            if ((world.BlockAccessor.GetBlockEntity(pos) as BlockEntitySaucepan)?.isSealed == true) drop.Attributes.SetBool("isSealed", true);
+            if (GetBlockEntity<BlockEntitySaucepan>(pos)?.isSealed == true) drop.Attributes.SetBool("isSealed", true);
 
             return drop;
         }
